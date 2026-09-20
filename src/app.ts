@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import patientRoutes from "./routes/patientRoutes";
+import errorMiddleware from "./middleware/errorMiddleware";
 
 const app = express();
 
@@ -12,5 +14,9 @@ app.get("/api/health", (_req, res) => {
     message: "QuickRx API is running",
   });
 });
+
+app.use("/api/patients", patientRoutes);
+
+app.use(errorMiddleware);
 
 export default app;

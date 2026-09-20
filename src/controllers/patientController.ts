@@ -5,7 +5,7 @@ import {
   getPatientById,
   updatePatient,
   deletePatient,
-} from "../services/patientService.js";
+} from "../services/patientService";
 
 export const createPatientController = async (
   req: Request,
