@@ -1,7 +1,10 @@
 import express from "express";
 import cors from "cors";
+
 import patientRoutes from "./routes/patientRoutes";
 import visitRoutes from "./routes/visitRoutes";
+import prescriptionRoutes from "./routes/prescriptionRoutes";
+
 import errorMiddleware from "./middleware/errorMiddleware";
 
 const app = express();
@@ -18,6 +21,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/patients", patientRoutes);
 app.use("/api/visits", visitRoutes);
+app.use("/api/prescriptions", prescriptionRoutes);
 
 app.use(errorMiddleware);
 

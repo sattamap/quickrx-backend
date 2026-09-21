@@ -2,6 +2,19 @@ import Visit, { type IVisit } from "../models/Visit";
 import Patient from "../models/Patient";
 import type { Types } from "mongoose";
 
+const mapVisit = (visit: IVisit) => ({
+  id: visit._id.toString(),
+  patientId: visit.patientId.toString(),
+  ageAtVisit: visit.ageAtVisit,
+  visitDate: visit.visitDate,
+  chiefComplaint: visit.chiefComplaint,
+  examination: visit.examination,
+  diagnosis: visit.diagnosis,
+  clinicalNotes: visit.clinicalNotes,
+  createdAt: visit.createdAt,
+  updatedAt: visit.updatedAt,
+});
+
 export interface CreateVisitData {
   patientId: Types.ObjectId;
   ageAtVisit: number;
@@ -14,7 +27,7 @@ export interface CreateVisitData {
 
 export const createVisit = async (
   data: CreateVisitData,
-): Promise<IVisit> => {
+) => {
   const patient = await Patient.findById(data.patientId);
 
   if (!patient) {
@@ -23,44 +36,117 @@ export const createVisit = async (
 
   const visit = await Visit.create(data);
 
-  return visit;
+  return mapVisit(visit);
 };
 
-export const getAllVisits = async (): Promise<IVisit[]> => {
-  return Visit.find()
-    .populate("patientId", "patientId name age gender")
-    .sort({ visitDate: -1 });
+export const getAllVisits = async () => {
+  const visits = await Visit.find()
+    .populate(
+      "patientId",
+      "patientId name age gender",
+    )
+    .sort({
+      visitDate: -1,
+    });
+
+  return visits.map((visit) => ({
+    id: visit._id.toString(),
+    patientId:
+      typeof visit.patientId === "object" &&
+      visit.patientId !== null &&
+      "_id" in visit.patientId
+        ? String(visit.patientId._id)
+        : String(visit.patientId),
+    ageAtVisit: visit.ageAtVisit,
+    visitDate: visit.visitDate,
+    chiefComplaint: visit.chiefComplaint,
+    examination: visit.examination,
+    diagnosis: visit.diagnosis,
+    clinicalNotes: visit.clinicalNotes,
+    createdAt: visit.createdAt,
+    updatedAt: visit.updatedAt,
+  }));
 };
 
 export const getVisitById = async (
   id: string,
-): Promise<IVisit | null> => {
-  return Visit.findById(id).populate(
+) => {
+  const visit = await Visit.findById(id).populate(
     "patientId",
     "patientId name age gender",
   );
+
+  if (!visit) {
+    return null;
+  }
+
+  return {
+    id: visit._id.toString(),
+    patientId:
+      typeof visit.patientId === "object" &&
+      visit.patientId !== null &&
+      "_id" in visit.patientId
+        ? String(visit.patientId._id)
+        : String(visit.patientId),
+    ageAtVisit: visit.ageAtVisit,
+    visitDate: visit.visitDate,
+    chiefComplaint: visit.chiefComplaint,
+    examination: visit.examination,
+    diagnosis: visit.diagnosis,
+    clinicalNotes: visit.clinicalNotes,
+    createdAt: visit.createdAt,
+    updatedAt: visit.updatedAt,
+  };
 };
 
 export const getVisitsByPatientId = async (
   patientId: string,
-): Promise<IVisit[]> => {
-  return Visit.find({ patientId })
-    .populate("patientId", "patientId name age gender")
-    .sort({ visitDate: -1 });
+) => {
+  const visits = await Visit.find({
+    patientId,
+  })
+    .populate(
+      "patientId",
+      "patientId name age gender",
+    )
+    .sort({
+      visitDate: -1,
+    });
+
+  return visits.map(mapVisit);
 };
 
 export const updateVisit = async (
   id: string,
   data: Partial<CreateVisitData>,
-): Promise<IVisit | null> => {
-  return Visit.findByIdAndUpdate(id, data, {
-    new: true,
-    runValidators: true,
-  }).populate("patientId", "patientId name age gender");
+) => {
+  const visit = await Visit.findByIdAndUpdate(
+    id,
+    data,
+    {
+      new: true,
+      runValidators: true,
+    },
+  ).populate(
+    "patientId",
+    "patientId name age gender",
+  );
+
+  if (!visit) {
+    return null;
+  }
+
+  return mapVisit(visit);
 };
 
 export const deleteVisit = async (
   id: string,
-): Promise<IVisit | null> => {
-  return Visit.findByIdAndDelete(id);
+) => {
+  const visit = await Visit.findByIdAndDelete(id);
+
+  if (!visit) {
+    return null;
+  }
+
+  return mapVisit(visit);
 };
