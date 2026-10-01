@@ -1,5 +1,6 @@
 import Visit, { type IVisit } from "../models/Visit";
 import Patient from "../models/Patient";
+import Prescription from "../models/Prescription";
 import type { Types } from "mongoose";
 
 const mapVisit = (visit: IVisit) => ({
@@ -142,11 +143,19 @@ export const updateVisit = async (
 export const deleteVisit = async (
   id: string,
 ) => {
-  const visit = await Visit.findByIdAndDelete(id);
+  const visit = await Visit.findById(id);
 
   if (!visit) {
     return null;
   }
+
+  // Delete the prescription associated with this visit, if one exists.
+  await Prescription.deleteOne({
+    visitId: visit._id,
+  });
+
+  // Delete the visit itself.
+  await Visit.findByIdAndDelete(id);
 
   return mapVisit(visit);
 };

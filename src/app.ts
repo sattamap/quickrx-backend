@@ -4,6 +4,8 @@ import cors from "cors";
 import patientRoutes from "./routes/patientRoutes";
 import visitRoutes from "./routes/visitRoutes";
 import prescriptionRoutes from "./routes/prescriptionRoutes";
+import doctorProfileRoutes from "./routes/doctorProfileRoutes";
+import prescriptionSettingsRoutes from "./routes/prescriptionSettingsRoutes";
 
 import errorMiddleware from "./middleware/errorMiddleware";
 
@@ -22,6 +24,11 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/patients", patientRoutes);
 app.use("/api/visits", visitRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
+app.use("/api/doctor-profile", doctorProfileRoutes);
+app.use(
+  "/api/prescription-settings",
+  prescriptionSettingsRoutes,
+);
 
 app.use(errorMiddleware);
 

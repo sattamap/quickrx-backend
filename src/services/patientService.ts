@@ -1,4 +1,6 @@
 import Patient, { type IPatient } from "../models/Patient";
+import Visit from "../models/Visit";
+import Prescription from "../models/Prescription";
 
 const mapPatient = (patient: IPatient) => ({
   id: patient._id.toString(),
@@ -112,11 +114,24 @@ export const updatePatient = async (
 export const deletePatient = async (
   id: string,
 ) => {
-  const patient = await Patient.findByIdAndDelete(id);
+  const patient = await Patient.findById(id);
 
   if (!patient) {
     return null;
   }
+
+  // Delete all prescriptions belonging to this patient.
+  await Prescription.deleteMany({
+    patientId: patient._id,
+  });
+
+  // Delete all visits belonging to this patient.
+  await Visit.deleteMany({
+    patientId: patient._id,
+  });
+
+  // Finally, delete the patient.
+  await Patient.findByIdAndDelete(id);
 
   return mapPatient(patient);
 };

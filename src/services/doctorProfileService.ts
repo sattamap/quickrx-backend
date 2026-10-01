@@ -1,6 +1,6 @@
 import DoctorProfile, {
   IDoctorProfile,
-} from "../models/DoctorProfile.js";
+} from "../models/DoctorProfile";
 
 export interface DoctorProfileInput {
   doctorName: string;
