@@ -1,4 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
+
 import {
   createPatient,
   getAllPatients,
@@ -7,13 +9,26 @@ import {
   deletePatient,
 } from "../services/patientService";
 
+const getAuthenticatedUserId = (req: Request): Types.ObjectId => {
+  if (!req.userId) {
+    throw new Error("Authentication required.");
+  }
+
+  return new Types.ObjectId(req.userId);
+};
+
 export const createPatientController = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const patient = await createPatient(req.body);
+    const userId = getAuthenticatedUserId(req);
+
+    const patient = await createPatient({
+      ...req.body,
+      userId,
+    });
 
     res.status(201).json({
       success: true,
@@ -25,12 +40,14 @@ export const createPatientController = async (
 };
 
 export const getPatientsController = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const patients = await getAllPatients();
+    const userId = getAuthenticatedUserId(req);
+
+    const patients = await getAllPatients(userId);
 
     res.status(200).json({
       success: true,
@@ -47,7 +64,12 @@ export const getPatientController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const patient = await getPatientById(req.params.id);
+    const userId = getAuthenticatedUserId(req);
+
+    const patient = await getPatientById(
+      userId,
+      req.params.id,
+    );
 
     if (!patient) {
       res.status(404).json({
@@ -72,7 +94,13 @@ export const updatePatientController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const patient = await updatePatient(req.params.id, req.body);
+    const userId = getAuthenticatedUserId(req);
+
+    const patient = await updatePatient(
+      userId,
+      req.params.id,
+      req.body,
+    );
 
     if (!patient) {
       res.status(404).json({
@@ -97,7 +125,12 @@ export const deletePatientController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const patient = await deletePatient(req.params.id);
+    const userId = getAuthenticatedUserId(req);
+
+    const patient = await deletePatient(
+      userId,
+      req.params.id,
+    );
 
     if (!patient) {
       res.status(404).json({

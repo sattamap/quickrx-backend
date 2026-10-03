@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import {
   createPatientController,
   getPatientsController,
@@ -7,16 +8,55 @@ import {
   deletePatientController,
 } from "../controllers/patientController";
 
+import { validateBody } from "../middleware/validationMiddleware";
+
+import {
+  createPatientSchema,
+  updatePatientSchema,
+} from "../validation/patientValidation";
+
 const router = Router();
 
-router.post("/", createPatientController);
+/**
+ * Patient list.
+ */
+router.get(
+  "/",
+  getPatientsController,
+);
 
-router.get("/", getPatientsController);
+/**
+ * Create patient.
+ */
+router.post(
+  "/",
+  validateBody(createPatientSchema),
+  createPatientController,
+);
 
-router.get("/:id", getPatientController);
+/**
+ * Get patient.
+ */
+router.get(
+  "/:id",
+  getPatientController,
+);
 
-router.put("/:id", updatePatientController);
+/**
+ * Update patient.
+ */
+router.put(
+  "/:id",
+  validateBody(updatePatientSchema),
+  updatePatientController,
+);
 
-router.delete("/:id", deletePatientController);
+/**
+ * Delete patient.
+ */
+router.delete(
+  "/:id",
+  deletePatientController,
+);
 
 export default router;

@@ -1,41 +1,53 @@
 import { Router } from "express";
+
 import {
   createPrescriptionController,
   getPrescriptionsController,
   getPrescriptionController,
   getPrescriptionByVisitController,
-  getPatientPrescriptionsController,
   updatePrescriptionController,
   deletePrescriptionController,
 } from "../controllers/prescriptionController";
 
+import { validateBody } from "../middleware/validationMiddleware";
+
+import {
+  createPrescriptionSchema,
+  updatePrescriptionSchema,
+} from "../validation/prescriptionValidation";
+
 const router = Router();
 
-// Create prescription
-router.post("/", createPrescriptionController);
-
-// Get all prescriptions
-router.get("/", getPrescriptionsController);
-
-// Get prescriptions for a specific patient
-router.get(
-  "/patient/:patientId",
-  getPatientPrescriptionsController,
+router.post(
+  "/",
+  validateBody(createPrescriptionSchema),
+  createPrescriptionController,
 );
 
-// Get prescription for a specific visit
+router.get(
+  "/",
+  getPrescriptionsController,
+);
+
 router.get(
   "/visit/:visitId",
   getPrescriptionByVisitController,
 );
 
-// Get prescription by ID
-router.get("/:id", getPrescriptionController);
+router.get(
+  "/:id",
+  getPrescriptionController,
+);
 
-// Update prescription
-router.put("/:id", updatePrescriptionController);
+router.put(
+  "/:id",
+  validateBody(updatePrescriptionSchema),
+  updatePrescriptionController,
+);
 
-// Delete prescription
-router.delete("/:id", deletePrescriptionController);
+router.delete(
+  "/:id",
+  deletePrescriptionController,
+);
 
 export default router;

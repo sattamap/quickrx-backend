@@ -1,6 +1,7 @@
-import { Schema, model, type Document } from "mongoose";
+import { Schema, model, type Document, type Types } from "mongoose";
 
 export interface IPatient extends Document {
+  userId: Types.ObjectId;
   patientId: string;
   name: string;
   age: number;
@@ -16,10 +17,16 @@ export interface IPatient extends Document {
 
 const patientSchema = new Schema<IPatient>(
   {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+
     patientId: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
 
@@ -74,6 +81,12 @@ const patientSchema = new Schema<IPatient>(
   {
     timestamps: true,
   },
+);
+
+// A patient ID only needs to be unique within one doctor's account.
+patientSchema.index(
+  { userId: 1, patientId: 1 },
+  { unique: true },
 );
 
 const Patient = model<IPatient>("Patient", patientSchema);

@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import { Types } from "mongoose";
+
 import {
   createPrescription,
   getAllPrescriptions,
@@ -9,13 +11,28 @@ import {
   deletePrescription,
 } from "../services/prescriptionService";
 
+const getAuthenticatedUserId = (
+  req: Request,
+): Types.ObjectId => {
+  if (!req.userId) {
+    throw new Error("Authentication required.");
+  }
+
+  return new Types.ObjectId(req.userId);
+};
+
 export const createPrescriptionController = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const prescription = await createPrescription(req.body);
+    const userId = getAuthenticatedUserId(req);
+
+    const prescription = await createPrescription(
+      userId,
+      req.body,
+    );
 
     res.status(201).json({
       success: true,
@@ -27,12 +44,15 @@ export const createPrescriptionController = async (
 };
 
 export const getPrescriptionsController = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const prescriptions = await getAllPrescriptions();
+    const userId = getAuthenticatedUserId(req);
+
+    const prescriptions =
+      await getAllPrescriptions(userId);
 
     res.status(200).json({
       success: true,
@@ -49,7 +69,12 @@ export const getPrescriptionController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const prescription = await getPrescriptionById(req.params.id);
+    const userId = getAuthenticatedUserId(req);
+
+    const prescription = await getPrescriptionById(
+      userId,
+      req.params.id,
+    );
 
     if (!prescription) {
       res.status(404).json({
@@ -74,9 +99,13 @@ export const getPrescriptionByVisitController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const prescription = await getPrescriptionByVisitId(
-      req.params.visitId,
-    );
+    const userId = getAuthenticatedUserId(req);
+
+    const prescription =
+      await getPrescriptionByVisitId(
+        userId,
+        req.params.visitId,
+      );
 
     if (!prescription) {
       res.status(404).json({
@@ -101,9 +130,13 @@ export const getPatientPrescriptionsController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const prescriptions = await getPrescriptionsByPatientId(
-      req.params.patientId,
-    );
+    const userId = getAuthenticatedUserId(req);
+
+    const prescriptions =
+      await getPrescriptionsByPatientId(
+        userId,
+        req.params.patientId,
+      );
 
     res.status(200).json({
       success: true,
@@ -120,10 +153,14 @@ export const updatePrescriptionController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const prescription = await updatePrescription(
-      req.params.id,
-      req.body,
-    );
+    const userId = getAuthenticatedUserId(req);
+
+    const prescription =
+      await updatePrescription(
+        userId,
+        req.params.id,
+        req.body,
+      );
 
     if (!prescription) {
       res.status(404).json({
@@ -148,7 +185,13 @@ export const deletePrescriptionController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const prescription = await deletePrescription(req.params.id);
+    const userId = getAuthenticatedUserId(req);
+
+    const prescription =
+      await deletePrescription(
+        userId,
+        req.params.id,
+      );
 
     if (!prescription) {
       res.status(404).json({

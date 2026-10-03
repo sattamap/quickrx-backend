@@ -1,4 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
+
 import {
   createVisit,
   getAllVisits,
@@ -8,13 +10,25 @@ import {
   deleteVisit,
 } from "../services/visitService";
 
+const getAuthenticatedUserId = (
+  req: Request,
+): Types.ObjectId => {
+  if (!req.userId) {
+    throw new Error("Authentication required.");
+  }
+
+  return new Types.ObjectId(req.userId);
+};
+
 export const createVisitController = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const visit = await createVisit(req.body);
+    const userId = getAuthenticatedUserId(req);
+
+    const visit = await createVisit(userId, req.body);
 
     res.status(201).json({
       success: true,
@@ -26,12 +40,14 @@ export const createVisitController = async (
 };
 
 export const getVisitsController = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const visits = await getAllVisits();
+    const userId = getAuthenticatedUserId(req);
+
+    const visits = await getAllVisits(userId);
 
     res.status(200).json({
       success: true,
@@ -48,7 +64,12 @@ export const getVisitController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const visit = await getVisitById(req.params.id);
+    const userId = getAuthenticatedUserId(req);
+
+    const visit = await getVisitById(
+      userId,
+      req.params.id,
+    );
 
     if (!visit) {
       res.status(404).json({
@@ -74,7 +95,12 @@ export const getPatientVisitsController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const visits = await getVisitsByPatientId(req.params.patientId);
+    const userId = getAuthenticatedUserId(req);
+
+    const visits = await getVisitsByPatientId(
+      userId,
+      req.params.patientId,
+    );
 
     res.status(200).json({
       success: true,
@@ -91,7 +117,13 @@ export const updateVisitController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const visit = await updateVisit(req.params.id, req.body);
+    const userId = getAuthenticatedUserId(req);
+
+    const visit = await updateVisit(
+      userId,
+      req.params.id,
+      req.body,
+    );
 
     if (!visit) {
       res.status(404).json({
@@ -117,7 +149,12 @@ export const deleteVisitController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const visit = await deleteVisit(req.params.id);
+    const userId = getAuthenticatedUserId(req);
+
+    const visit = await deleteVisit(
+      userId,
+      req.params.id,
+    );
 
     if (!visit) {
       res.status(404).json({

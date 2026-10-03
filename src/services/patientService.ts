@@ -1,6 +1,7 @@
 import Patient, { type IPatient } from "../models/Patient";
 import Visit from "../models/Visit";
 import Prescription from "../models/Prescription";
+import type { Types } from "mongoose";
 
 const mapPatient = (patient: IPatient) => ({
   id: patient._id.toString(),
@@ -18,6 +19,7 @@ const mapPatient = (patient: IPatient) => ({
 });
 
 export interface CreatePatientData {
+  userId: Types.ObjectId;
   patientId?: string;
   name: string;
   age: number;
@@ -27,10 +29,13 @@ export interface CreatePatientData {
   address: string;
   allergies?: string;
   notes?: string;
-};
+}
 
-const generatePatientId = async (): Promise<string> => {
+const generatePatientId = async (
+  userId: Types.ObjectId,
+): Promise<string> => {
   const lastPatient = await Patient.findOne({
+    userId,
     patientId: /^PAT-\d+$/,
   }).sort({ patientId: -1 });
 
@@ -53,9 +58,11 @@ export const createPatient = async (
   data: CreatePatientData,
 ) => {
   const patientId =
-    data.patientId?.trim() || await generatePatientId();
+    data.patientId?.trim() ||
+    (await generatePatientId(data.userId));
 
   const existingPatient = await Patient.findOne({
+    userId: data.userId,
     patientId,
   });
 
@@ -71,8 +78,12 @@ export const createPatient = async (
   return mapPatient(patient);
 };
 
-export const getAllPatients = async () => {
-  const patients = await Patient.find().sort({
+export const getAllPatients = async (
+  userId: Types.ObjectId,
+) => {
+  const patients = await Patient.find({
+    userId,
+  }).sort({
     createdAt: -1,
   });
 
@@ -80,9 +91,13 @@ export const getAllPatients = async () => {
 };
 
 export const getPatientById = async (
+  userId: Types.ObjectId,
   id: string,
 ) => {
-  const patient = await Patient.findById(id);
+  const patient = await Patient.findOne({
+    _id: id,
+    userId,
+  });
 
   if (!patient) {
     return null;
@@ -92,12 +107,19 @@ export const getPatientById = async (
 };
 
 export const updatePatient = async (
+  userId: Types.ObjectId,
   id: string,
   data: Partial<CreatePatientData>,
 ) => {
-  const patient = await Patient.findByIdAndUpdate(
-    id,
-    data,
+  // Never allow the owner to be changed through patient updates.
+  const { userId: _ignoredUserId, ...updateData } = data;
+
+  const patient = await Patient.findOneAndUpdate(
+    {
+      _id: id,
+      userId,
+    },
+    updateData,
     {
       new: true,
       runValidators: true,
@@ -112,9 +134,13 @@ export const updatePatient = async (
 };
 
 export const deletePatient = async (
+  userId: Types.ObjectId,
   id: string,
 ) => {
-  const patient = await Patient.findById(id);
+  const patient = await Patient.findOne({
+    _id: id,
+    userId,
+  });
 
   if (!patient) {
     return null;
@@ -131,7 +157,10 @@ export const deletePatient = async (
   });
 
   // Finally, delete the patient.
-  await Patient.findByIdAndDelete(id);
+  await Patient.findOneAndDelete({
+    _id: id,
+    userId,
+  });
 
   return mapPatient(patient);
 };
