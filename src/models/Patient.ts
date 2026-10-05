@@ -1,16 +1,26 @@
-import { Schema, model, type Document, type Types } from "mongoose";
+import {
+  Schema,
+  model,
+  type Document,
+  type Types,
+} from "mongoose";
 
 export interface IPatient extends Document {
   userId: Types.ObjectId;
   patientId: string;
+
+  // Required patient information
   name: string;
   age: number;
-  dateOfBirth?: string;
   gender: "male" | "female" | "other";
-  phone: string;
-  address: string;
-  allergies: string;
-  notes: string;
+
+  // Optional patient information
+  dateOfBirth?: string;
+  phone?: string;
+  address?: string;
+  allergies?: string;
+  notes?: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,12 +40,14 @@ const patientSchema = new Schema<IPatient>(
       trim: true,
     },
 
+    // Required
     name: {
       type: String,
       required: true,
       trim: true,
     },
 
+    // Required
     age: {
       type: Number,
       required: true,
@@ -43,39 +55,46 @@ const patientSchema = new Schema<IPatient>(
       max: 150,
     },
 
+    // Optional
     dateOfBirth: {
       type: String,
       trim: true,
+      default: undefined,
     },
 
+    // Required
     gender: {
       type: String,
       enum: ["male", "female", "other"],
       required: true,
     },
 
+    // Optional
     phone: {
       type: String,
-      required: true,
       trim: true,
+      default: undefined,
     },
 
+    // Optional
     address: {
       type: String,
-      required: true,
       trim: true,
+      default: undefined,
     },
 
+    // Optional
     allergies: {
       type: String,
-      default: "",
       trim: true,
+      default: undefined,
     },
 
+    // Optional
     notes: {
       type: String,
-      default: "",
       trim: true,
+      default: undefined,
     },
   },
   {

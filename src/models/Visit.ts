@@ -39,11 +39,18 @@ export interface IEyeExamination {
   };
 }
 
+export interface IVitalSigns {
+  weight: number | null;
+  height: number | null;
+  bloodPressure: string;
+}
+
 export interface IVisit extends Document {
   patientId: Types.ObjectId;
   ageAtVisit: number;
   visitDate: Date;
   chiefComplaint: string;
+  vitalSigns: IVitalSigns;
   examination: IEyeExamination;
   diagnosis: string;
   clinicalNotes: string;
@@ -58,6 +65,7 @@ const visualAcuitySchema = new Schema<IVisualAcuity>(
       default: "",
       trim: true,
     },
+
     aided: {
       type: String,
       default: "",
@@ -74,16 +82,19 @@ const refractionSchema = new Schema<IRefraction>(
       default: "",
       trim: true,
     },
+
     cyl: {
       type: String,
       default: "",
       trim: true,
     },
+
     axis: {
       type: String,
       default: "",
       trim: true,
     },
+
     visualAcuity: {
       type: String,
       default: "",
@@ -100,6 +111,7 @@ const eyeExaminationSchema = new Schema<IEyeExamination>(
         type: visualAcuitySchema,
         required: true,
       },
+
       left: {
         type: visualAcuitySchema,
         required: true,
@@ -111,6 +123,7 @@ const eyeExaminationSchema = new Schema<IEyeExamination>(
         type: refractionSchema,
         required: true,
       },
+
       left: {
         type: refractionSchema,
         required: true,
@@ -123,6 +136,7 @@ const eyeExaminationSchema = new Schema<IEyeExamination>(
         default: "",
         trim: true,
       },
+
       left: {
         type: String,
         default: "",
@@ -136,6 +150,7 @@ const eyeExaminationSchema = new Schema<IEyeExamination>(
         default: "",
         trim: true,
       },
+
       left: {
         type: String,
         default: "",
@@ -149,11 +164,37 @@ const eyeExaminationSchema = new Schema<IEyeExamination>(
         default: "",
         trim: true,
       },
+
       left: {
         type: String,
         default: "",
         trim: true,
       },
+    },
+  },
+  { _id: false },
+);
+
+const vitalSignsSchema = new Schema<IVitalSigns>(
+  {
+    weight: {
+      type: Number,
+      min: 0,
+      max: 500,
+      default: null,
+    },
+
+    height: {
+      type: Number,
+      min: 0,
+      max: 300,
+      default: null,
+    },
+
+    bloodPressure: {
+      type: String,
+      default: "",
+      trim: true,
     },
   },
   { _id: false },
@@ -186,9 +227,14 @@ const visitSchema = new Schema<IVisit>(
       trim: true,
     },
 
+    vitalSigns: {
+      type: vitalSignsSchema,
+      required: false,
+    },
+
     examination: {
       type: eyeExaminationSchema,
-      required: true,
+      required: false,
     },
 
     diagnosis: {

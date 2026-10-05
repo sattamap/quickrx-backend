@@ -5,6 +5,7 @@ import {
   getPrescriptionsController,
   getPrescriptionController,
   getPrescriptionByVisitController,
+  getPatientPrescriptionsController,
   updatePrescriptionController,
   deletePrescriptionController,
 } from "../controllers/prescriptionController";
@@ -27,6 +28,16 @@ router.post(
 router.get(
   "/",
   getPrescriptionsController,
+);
+
+/**
+ * Get all prescriptions belonging to a specific patient.
+ *
+ * This route must be declared before "/:id".
+ */
+router.get(
+  "/patient/:patientId",
+  getPatientPrescriptionsController,
 );
 
 router.get(

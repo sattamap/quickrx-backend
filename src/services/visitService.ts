@@ -5,12 +5,14 @@ import type { Types } from "mongoose";
 
 const mapVisit = (visit: IVisit) => ({
   id: visit._id.toString(),
+
   patientId:
     typeof visit.patientId === "object" &&
     visit.patientId !== null &&
     "_id" in visit.patientId
       ? String(visit.patientId._id)
       : String(visit.patientId),
+
   ageAtVisit: visit.ageAtVisit,
   visitDate: visit.visitDate,
   chiefComplaint: visit.chiefComplaint,
@@ -31,10 +33,16 @@ export interface CreateVisitData {
   clinicalNotes?: string;
 }
 
+/**
+ * Create a new visit for a patient.
+ *
+ * The patient must belong to the authenticated doctor.
+ */
 export const createVisit = async (
   userId: Types.ObjectId,
   data: CreateVisitData,
 ) => {
+  // Verify that the patient belongs to the authenticated doctor.
   const patient = await Patient.findOne({
     _id: data.patientId,
     userId,
@@ -44,11 +52,24 @@ export const createVisit = async (
     throw new Error("Patient not found.");
   }
 
-  const visit = await Visit.create(data);
+  // Explicitly construct the visit data.
+  // Do not allow the client to inject userId or other fields.
+  const visit = await Visit.create({
+    patientId: patient._id,
+    ageAtVisit: data.ageAtVisit,
+    visitDate: data.visitDate,
+    chiefComplaint: data.chiefComplaint,
+    examination: data.examination,
+    diagnosis: data.diagnosis ?? "",
+    clinicalNotes: data.clinicalNotes ?? "",
+  });
 
   return mapVisit(visit);
 };
 
+/**
+ * Get all visits belonging to the authenticated doctor.
+ */
 export const getAllVisits = async (
   userId: Types.ObjectId,
 ) => {
@@ -74,6 +95,11 @@ export const getAllVisits = async (
   return visits.map(mapVisit);
 };
 
+/**
+ * Get one visit by ID.
+ *
+ * Ownership is verified through the patient.
+ */
 export const getVisitById = async (
   userId: Types.ObjectId,
   id: string,
@@ -106,6 +132,11 @@ export const getVisitById = async (
   return mapVisit(visit);
 };
 
+/**
+ * Get all visits for a specific patient.
+ *
+ * The patient must belong to the authenticated doctor.
+ */
 export const getVisitsByPatientId = async (
   userId: Types.ObjectId,
   patientId: string,
@@ -133,6 +164,11 @@ export const getVisitsByPatientId = async (
   return visits.map(mapVisit);
 };
 
+/**
+ * Update an existing visit.
+ *
+ * A visit cannot be moved to another patient.
+ */
 export const updateVisit = async (
   userId: Types.ObjectId,
   id: string,
@@ -144,6 +180,8 @@ export const updateVisit = async (
     return null;
   }
 
+  // Verify that the existing visit belongs to
+  // a patient owned by the authenticated doctor.
   const patient = await Patient.findOne({
     _id: existingVisit.patientId,
     userId,
@@ -153,9 +191,11 @@ export const updateVisit = async (
     return null;
   }
 
-  // Do not allow a visit to be moved to another patient.
-  const { patientId: _ignoredPatientId, ...updateData } =
-    data;
+  // Never allow the visit to be moved to another patient.
+  const {
+    patientId: _ignoredPatientId,
+    ...updateData
+  } = data;
 
   const visit = await Visit.findByIdAndUpdate(
     id,
@@ -173,6 +213,9 @@ export const updateVisit = async (
   return mapVisit(visit);
 };
 
+/**
+ * Delete a visit and its associated prescription.
+ */
 export const deleteVisit = async (
   userId: Types.ObjectId,
   id: string,
@@ -183,6 +226,7 @@ export const deleteVisit = async (
     return null;
   }
 
+  // Verify ownership before deleting.
   const patient = await Patient.findOne({
     _id: visit.patientId,
     userId,
