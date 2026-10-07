@@ -16,6 +16,9 @@ const mapVisit = (visit: IVisit) => ({
   ageAtVisit: visit.ageAtVisit,
   visitDate: visit.visitDate,
   chiefComplaint: visit.chiefComplaint,
+
+  vitalSigns: visit.vitalSigns,
+
   examination: visit.examination,
   diagnosis: visit.diagnosis,
   clinicalNotes: visit.clinicalNotes,
@@ -28,6 +31,7 @@ export interface CreateVisitData {
   ageAtVisit: number;
   visitDate: Date;
   chiefComplaint: string;
+  vitalSigns: IVisit["vitalSigns"];
   examination: IVisit["examination"];
   diagnosis?: string;
   clinicalNotes?: string;
@@ -59,6 +63,7 @@ export const createVisit = async (
     ageAtVisit: data.ageAtVisit,
     visitDate: data.visitDate,
     chiefComplaint: data.chiefComplaint,
+    vitalSigns: data.vitalSigns,
     examination: data.examination,
     diagnosis: data.diagnosis ?? "",
     clinicalNotes: data.clinicalNotes ?? "",
