@@ -9,6 +9,7 @@ import visitRoutes from "./routes/visitRoutes";
 import prescriptionRoutes from "./routes/prescriptionRoutes";
 import doctorProfileRoutes from "./routes/doctorProfileRoutes";
 import prescriptionSettingsRoutes from "./routes/prescriptionSettingsRoutes";
+import investigationRoutes from "./routes/investigationRoutes";
 
 import { authMiddleware } from "./middleware/authMiddleware";
 import errorMiddleware from "./middleware/errorMiddleware";
@@ -92,6 +93,7 @@ app.use(
   authMiddleware,
   prescriptionSettingsRoutes,
 );
+app.use("/api/investigations", authMiddleware, investigationRoutes);
 
 /**
  * Global error handler.
