@@ -21,6 +21,14 @@ export interface IPatient extends Document {
   allergies?: string;
   notes?: string;
 
+  // Referral information
+  referredBy?: {
+    name?: string;
+    designation?: string;
+    organization?: string;
+    phone?: string;
+  };
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,6 +103,30 @@ const patientSchema = new Schema<IPatient>(
       type: String,
       trim: true,
       default: undefined,
+    },
+
+    // Referral information
+    referredBy: {
+      name: {
+        type: String,
+        trim: true,
+        maxlength: 150,
+      },
+      designation: {
+        type: String,
+        trim: true,
+        maxlength: 100,
+      },
+      organization: {
+        type: String,
+        trim: true,
+        maxlength: 200,
+      },
+      phone: {
+        type: String,
+        trim: true,
+        maxlength: 30,
+      },
     },
   },
   {
