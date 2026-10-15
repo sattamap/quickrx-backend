@@ -2,10 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
-import User, {
-  type IUser,
-  type UserRole,
-} from "../models/User";
+import User, { type IUser, type UserRole } from "../models/User";
 
 import RefreshSession from "../models/RefreshSession";
 
@@ -26,7 +23,6 @@ export interface RegisterUserData {
   name: string;
   email: string;
   password: string;
-  role?: UserRole;
 }
 
 export interface LoginUserData {
@@ -77,10 +73,7 @@ const generateCsrfToken = (): string => {
  * Hash a token before storing it in MongoDB.
  */
 const hashToken = (token: string): string => {
-  return crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  return crypto.createHash("sha256").update(token).digest("hex");
 };
 
 /**
@@ -89,10 +82,7 @@ const hashToken = (token: string): string => {
  * crypto.timingSafeEqual helps prevent timing-based
  * comparisons when checking token hashes.
  */
-const tokensMatch = (
-  tokenA: string,
-  tokenB: string,
-): boolean => {
+const tokensMatch = (tokenA: string, tokenB: string): boolean => {
   const bufferA = Buffer.from(tokenA, "hex");
   const bufferB = Buffer.from(tokenB, "hex");
 
@@ -142,8 +132,7 @@ const createRefreshSession = async (
   const csrfTokenHash = hashToken(csrfToken);
 
   const expiresAt = new Date(
-    Date.now() +
-      REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
+    Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
   );
 
   await RefreshSession.create({
@@ -178,19 +167,18 @@ export const registerUser = async (
     throw new Error("A user with this email already exists.");
   }
 
-  const passwordHash = await bcrypt.hash(
-    data.password,
-    PASSWORD_SALT_ROUNDS,
-  );
+  const passwordHash = await bcrypt.hash(data.password, PASSWORD_SALT_ROUNDS);
 
   const user = await User.create({
     name: data.name.trim(),
     email: normalizedEmail,
     passwordHash,
 
-    // Public registration should create doctors by default.
-    // The controller should not accept a role from the client.
-    role: data.role ?? "doctor",
+    // Public registration can only create doctor accounts.
+    role: "doctor",
+
+    // New doctors require admin approval.
+    approvalStatus: "pending",
 
     isActive: true,
   });
@@ -201,9 +189,7 @@ export const registerUser = async (
 /**
  * Login user and create a new refresh-token family.
  */
-export const loginUser = async (
-  data: LoginUserData,
-) => {
+export const loginUser = async (data: LoginUserData) => {
   const normalizedEmail = data.email.toLowerCase().trim();
 
   const user = await User.findOne({
@@ -215,9 +201,17 @@ export const loginUser = async (
   }
 
   if (!user.isActive) {
-    throw new Error(
-      "This user account has been deactivated.",
-    );
+    throw new Error("This user account has been deactivated.");
+  }
+
+  if (user.role === "doctor" && user.approvalStatus !== "approved") {
+    if (user.approvalStatus === "rejected") {
+      throw new Error(
+        "Your account registration has been rejected. Please contact the administrator.",
+      );
+    }
+
+    throw new Error("Your account is awaiting admin approval.");
   }
 
   const passwordMatches = await bcrypt.compare(
@@ -244,8 +238,7 @@ export const loginUser = async (
 
     csrfToken: refreshSession.csrfToken,
 
-    refreshTokenExpiresAt:
-      refreshSession.expiresAt,
+    refreshTokenExpiresAt: refreshSession.expiresAt,
   };
 };
 
@@ -294,9 +287,7 @@ export const refreshAccessToken = async (
   });
 
   if (!session) {
-    throw new Error(
-      "Invalid or expired refresh session.",
-    );
+    throw new Error("Invalid or expired refresh session.");
   }
 
   /**
@@ -324,9 +315,7 @@ export const refreshAccessToken = async (
       },
     );
 
-    throw new Error(
-      "Refresh token reuse detected.",
-    );
+    throw new Error("Refresh token reuse detected.");
   }
 
   /**
@@ -340,9 +329,7 @@ export const refreshAccessToken = async (
 
     await session.save();
 
-    throw new Error(
-      "Invalid or expired refresh session.",
-    );
+    throw new Error("Invalid or expired refresh session.");
   }
 
   /**
@@ -351,12 +338,7 @@ export const refreshAccessToken = async (
    */
   const csrfTokenHash = hashToken(csrfToken);
 
-  if (
-    !tokensMatch(
-      csrfTokenHash,
-      session.csrfTokenHash,
-    )
-  ) {
+  if (!tokensMatch(csrfTokenHash, session.csrfTokenHash)) {
     throw new Error("Invalid CSRF token.");
   }
 
@@ -366,17 +348,21 @@ export const refreshAccessToken = async (
   const user = await User.findById(session.userId);
 
   if (!user) {
-    throw new Error(
-      "User account no longer exists.",
-    );
+    throw new Error("User account no longer exists.");
   }
 
   /**
    * Verify that the account is still active.
    */
   if (!user.isActive) {
+    throw new Error("This user account has been deactivated.");
+  }
+
+  if (user.role === "doctor" && user.approvalStatus !== "approved") {
     throw new Error(
-      "This user account has been deactivated.",
+      user.approvalStatus === "rejected"
+        ? "Your account registration has been rejected."
+        : "Your account is awaiting admin approval.",
     );
   }
 
@@ -400,28 +386,20 @@ export const refreshAccessToken = async (
    * This allows us to detect reuse of any old token
    * belonging to this refresh-token rotation chain.
    */
-  const newRefreshSession =
-    await createRefreshSession(
-      user,
-      session.familyId,
-    );
+  const newRefreshSession = await createRefreshSession(user, session.familyId);
 
   return {
     user: mapUser(user),
 
     accessToken,
 
-    refreshToken:
-      newRefreshSession.refreshToken,
+    refreshToken: newRefreshSession.refreshToken,
 
-    csrfToken:
-      newRefreshSession.csrfToken,
+    csrfToken: newRefreshSession.csrfToken,
 
-    refreshTokenExpiresAt:
-      newRefreshSession.expiresAt,
+    refreshTokenExpiresAt: newRefreshSession.expiresAt,
   };
 };
-
 
 /**
  * Issue a fresh CSRF token for an existing refresh session.
@@ -437,11 +415,7 @@ export const issueCsrfTokenForRefreshSession = async (
     tokenHash,
   });
 
-  if (
-    !session ||
-    session.revokedAt ||
-    session.expiresAt <= new Date()
-  ) {
+  if (!session || session.revokedAt || session.expiresAt <= new Date()) {
     throw new Error("Invalid or expired refresh session.");
   }
 
@@ -487,12 +461,7 @@ export const revokeRefreshToken = async (
 
   const csrfTokenHash = hashToken(csrfToken);
 
-  if (
-    !tokensMatch(
-      csrfTokenHash,
-      session.csrfTokenHash,
-    )
-  ) {
+  if (!tokensMatch(csrfTokenHash, session.csrfTokenHash)) {
     throw new Error("Invalid CSRF token.");
   }
 
@@ -531,9 +500,7 @@ export const revokeAllUserSessions = async (
 /**
  * Get the current user.
  */
-export const getUserById = async (
-  userId: string,
-): Promise<AuthUser | null> => {
+export const getUserById = async (userId: string): Promise<AuthUser | null> => {
   const user = await User.findById(userId);
 
   if (!user) {

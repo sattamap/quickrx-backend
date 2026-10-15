@@ -77,7 +77,7 @@ export const authMiddleware = async (
     }
 
     const user = await User.findById(decoded.userId)
-      .select("_id role isActive")
+      .select("_id role approvalStatus isActive")
       .lean();
 
     if (!user) {
@@ -92,6 +92,17 @@ export const authMiddleware = async (
       res.status(403).json({
         success: false,
         message: "User account is inactive.",
+      });
+      return;
+    }
+
+    if (user.role === "doctor" && user.approvalStatus !== "approved") {
+      res.status(403).json({
+        success: false,
+        message:
+          user.approvalStatus === "rejected"
+            ? "Your account registration has been rejected."
+            : "Your account is awaiting admin approval.",
       });
       return;
     }

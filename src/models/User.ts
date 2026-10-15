@@ -1,12 +1,15 @@
+
 import { Schema, model, type Document } from "mongoose";
 
 export type UserRole = "doctor" | "admin";
+export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export interface IUser extends Document {
   name: string;
   email: string;
   passwordHash: string;
   role: UserRole;
+  approvalStatus: ApprovalStatus;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +41,13 @@ const userSchema = new Schema<IUser>(
       type: String,
       enum: ["doctor", "admin"],
       default: "doctor",
+      required: true,
+    },
+
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
       required: true,
     },
 

@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 
 import authRoutes from "./routes/authRoutes";
+import adminRoutes from "./routes/adminRoutes";
 import patientRoutes from "./routes/patientRoutes";
 import visitRoutes from "./routes/visitRoutes";
 import prescriptionRoutes from "./routes/prescriptionRoutes";
@@ -76,6 +77,10 @@ app.get("/api/health", (_req, res) => {
  * Public authentication routes.
  */
 app.use("/api/auth", authRoutes);
+/**
+ * Administrator-only routes.
+ */
+app.use("/api/admin", adminRoutes);
 
 /**
  * Protected application routes.
