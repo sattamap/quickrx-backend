@@ -19,7 +19,7 @@ const csrfCookieName = "quickrx-csrf";
 const refreshCookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: "strict" as const,
+  sameSite: isProduction ? ("none" as const) : ("lax" as const),
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
@@ -27,7 +27,7 @@ const refreshCookieOptions = {
 const csrfCookieOptions = {
   httpOnly: false,
   secure: isProduction,
-  sameSite: "strict" as const,
+  sameSite: isProduction ? ("none" as const) : ("lax" as const),
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
