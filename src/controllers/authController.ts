@@ -5,6 +5,7 @@ import {
   refreshAccessToken,
   registerUser,
   revokeRefreshToken,
+  issueCsrfTokenForRefreshSession,
 } from "../services/authService";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -42,9 +43,7 @@ const isAllowedOrigin = (req: Request): boolean => {
   const frontendOrigin = process.env.FRONTEND_ORIGIN;
 
   if (!frontendOrigin) {
-    console.warn(
-      "FRONTEND_ORIGIN is not configured.",
-    );
+    console.warn("FRONTEND_ORIGIN is not configured.");
 
     return false;
   }
@@ -54,10 +53,7 @@ const isAllowedOrigin = (req: Request): boolean => {
   return requestOrigin === frontendOrigin;
 };
 
-const requireAllowedOrigin = (
-  req: Request,
-  res: Response,
-): boolean => {
+const requireAllowedOrigin = (req: Request, res: Response): boolean => {
   if (!isAllowedOrigin(req)) {
     res.status(403).json({
       success: false,
@@ -82,11 +78,7 @@ export const registerController = async (
       return;
     }
 
-    const {
-      name,
-      email,
-      password,
-    } = req.body;
+    const { name, email, password } = req.body;
 
     if (
       typeof name !== "string" ||
@@ -95,22 +87,16 @@ export const registerController = async (
     ) {
       res.status(400).json({
         success: false,
-        message:
-          "Name, email and password are required.",
+        message: "Name, email and password are required.",
       });
 
       return;
     }
 
-    if (
-      !name.trim() ||
-      !email.trim() ||
-      !password
-    ) {
+    if (!name.trim() || !email.trim() || !password) {
       res.status(400).json({
         success: false,
-        message:
-          "Name, email and password are required.",
+        message: "Name, email and password are required.",
       });
 
       return;
@@ -119,8 +105,7 @@ export const registerController = async (
     if (password.length < 8) {
       res.status(400).json({
         success: false,
-        message:
-          "Password must be at least 8 characters long.",
+        message: "Password must be at least 8 characters long.",
       });
 
       return;
@@ -146,17 +131,12 @@ export const registerController = async (
       message: "User registered successfully.",
     });
   } catch (error) {
-    console.error(
-      "Register controller error:",
-      error,
-    );
+    console.error("Register controller error:", error);
 
     res.status(400).json({
       success: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Unable to register user.",
+        error instanceof Error ? error.message : "Unable to register user.",
     });
   }
 };
@@ -173,10 +153,7 @@ export const loginController = async (
       return;
     }
 
-    const {
-      email,
-      password,
-    } = req.body;
+    const { email, password } = req.body;
 
     if (
       typeof email !== "string" ||
@@ -186,8 +163,7 @@ export const loginController = async (
     ) {
       res.status(400).json({
         success: false,
-        message:
-          "Email and password are required.",
+        message: "Email and password are required.",
       });
 
       return;
@@ -203,11 +179,7 @@ export const loginController = async (
      *
      * HttpOnly means JavaScript cannot read it.
      */
-    res.cookie(
-      refreshCookieName,
-      result.refreshToken,
-      refreshCookieOptions,
-    );
+    res.cookie(refreshCookieName, result.refreshToken, refreshCookieOptions);
 
     /**
      * CSRF token:
@@ -215,34 +187,24 @@ export const loginController = async (
      * JavaScript CAN read this cookie and send
      * it back through X-CSRF-Token.
      */
-    res.cookie(
-      csrfCookieName,
-      result.csrfToken,
-      csrfCookieOptions,
-    );
+    res.cookie(csrfCookieName, result.csrfToken, csrfCookieOptions);
 
     res.status(200).json({
       success: true,
       data: {
         user: result.user,
         accessToken: result.accessToken,
-        refreshTokenExpiresAt:
-          result.refreshTokenExpiresAt,
+        refreshTokenExpiresAt: result.refreshTokenExpiresAt,
       },
       message: "Login successful.",
     });
   } catch (error) {
-    console.error(
-      "Login controller error:",
-      error,
-    );
+    console.error("Login controller error:", error);
 
     res.status(401).json({
       success: false,
       message:
-        error instanceof Error
-          ? error.message
-          : "Invalid email or password.",
+        error instanceof Error ? error.message : "Invalid email or password.",
     });
   }
 };
@@ -259,26 +221,20 @@ export const refreshController = async (
       return;
     }
 
-    const refreshToken =
-      req.cookies?.[refreshCookieName];
+    const refreshToken = req.cookies?.[refreshCookieName];
 
-    const csrfToken =
-      req.headers["x-csrf-token"];
+    const csrfToken = req.headers["x-csrf-token"];
 
     if (!refreshToken) {
       res.status(401).json({
         success: false,
-        message:
-          "Refresh session is missing.",
+        message: "Refresh session is missing.",
       });
 
       return;
     }
 
-    if (
-      typeof csrfToken !== "string" ||
-      !csrfToken
-    ) {
+    if (typeof csrfToken !== "string" || !csrfToken) {
       res.status(403).json({
         success: false,
         message: "CSRF token is missing.",
@@ -287,57 +243,36 @@ export const refreshController = async (
       return;
     }
 
-    const result = await refreshAccessToken(
-      refreshToken,
-      csrfToken,
-    );
+    const result = await refreshAccessToken(refreshToken, csrfToken);
 
     /**
      * Rotate the refresh cookie.
      */
-    res.cookie(
-      refreshCookieName,
-      result.refreshToken,
-      refreshCookieOptions,
-    );
+    res.cookie(refreshCookieName, result.refreshToken, refreshCookieOptions);
 
     /**
      * Rotate the CSRF cookie as well.
      */
-    res.cookie(
-      csrfCookieName,
-      result.csrfToken,
-      csrfCookieOptions,
-    );
+    res.cookie(csrfCookieName, result.csrfToken, csrfCookieOptions);
 
     res.status(200).json({
       success: true,
       data: {
         user: result.user,
         accessToken: result.accessToken,
-        refreshTokenExpiresAt:
-          result.refreshTokenExpiresAt,
+        refreshTokenExpiresAt: result.refreshTokenExpiresAt,
       },
       message: "Access token refreshed.",
     });
   } catch (error) {
-    console.error(
-      "Refresh controller error:",
-      error,
-    );
+    console.error("Refresh controller error:", error);
 
     /**
      * Clear potentially invalid credentials.
      */
-    res.clearCookie(
-      refreshCookieName,
-      refreshCookieOptions,
-    );
+    res.clearCookie(refreshCookieName, refreshCookieOptions);
 
-    res.clearCookie(
-      csrfCookieName,
-      csrfCookieOptions,
-    );
+    res.clearCookie(csrfCookieName, csrfCookieOptions);
 
     res.status(401).json({
       success: false,
@@ -345,6 +280,50 @@ export const refreshController = async (
         error instanceof Error
           ? error.message
           : "Unable to refresh authentication.",
+    });
+  }
+};
+
+/**
+ * Issue a CSRF token for an existing refresh session.
+ *
+ * The refresh token is read from the HttpOnly cookie.
+ * The raw refresh token is never returned to JavaScript.
+ */
+export const csrfTokenController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (!requireAllowedOrigin(req, res)) {
+      return;
+    }
+
+    const refreshToken = req.cookies?.[refreshCookieName];
+
+    if (!refreshToken) {
+      res.status(401).json({
+        success: false,
+        message: "Refresh session is missing.",
+      });
+
+      return;
+    }
+
+    const csrfToken = await issueCsrfTokenForRefreshSession(refreshToken);
+
+    res.status(200).json({
+      success: true,
+      data: { csrfToken },
+      message: "CSRF token issued successfully.",
+    });
+  } catch (error) {
+    console.error("CSRF token controller error:", error);
+
+    res.status(401).json({
+      success: false,
+      message:
+        error instanceof Error ? error.message : "Unable to issue CSRF token.",
     });
   }
 };
@@ -361,49 +340,28 @@ export const logoutController = async (
       return;
     }
 
-    const refreshToken =
-      req.cookies?.[refreshCookieName];
+    const refreshToken = req.cookies?.[refreshCookieName];
 
-    const csrfToken =
-      req.headers["x-csrf-token"];
+    const csrfToken = req.headers["x-csrf-token"];
 
-    if (
-      refreshToken &&
-      typeof csrfToken === "string" &&
-      csrfToken
-    ) {
+    if (refreshToken && typeof csrfToken === "string" && csrfToken) {
       try {
-        await revokeRefreshToken(
-          refreshToken,
-          csrfToken,
-        );
+        await revokeRefreshToken(refreshToken, csrfToken);
       } catch (error) {
-        console.error(
-          "Failed to revoke refresh session:",
-          error,
-        );
+        console.error("Failed to revoke refresh session:", error);
       }
     }
 
-    res.clearCookie(
-      refreshCookieName,
-      refreshCookieOptions,
-    );
+    res.clearCookie(refreshCookieName, refreshCookieOptions);
 
-    res.clearCookie(
-      csrfCookieName,
-      csrfCookieOptions,
-    );
+    res.clearCookie(csrfCookieName, csrfCookieOptions);
 
     res.status(200).json({
       success: true,
       message: "Logout successful.",
     });
   } catch (error) {
-    console.error(
-      "Logout controller error:",
-      error,
-    );
+    console.error("Logout controller error:", error);
 
     res.status(500).json({
       success: false,
@@ -447,15 +405,11 @@ export const getCurrentUserController = async (
       data: user,
     });
   } catch (error) {
-    console.error(
-      "Get current user controller error:",
-      error,
-    );
+    console.error("Get current user controller error:", error);
 
     res.status(500).json({
       success: false,
-      message:
-        "Unable to retrieve current user.",
+      message: "Unable to retrieve current user.",
     });
   }
 };

@@ -422,6 +422,43 @@ export const refreshAccessToken = async (
   };
 };
 
+
+/**
+ * Issue a fresh CSRF token for an existing refresh session.
+ *
+ * Only the CSRF token hash is stored in MongoDB.
+ */
+export const issueCsrfTokenForRefreshSession = async (
+  refreshToken: string,
+): Promise<string> => {
+  const tokenHash = hashToken(refreshToken);
+
+  const session = await RefreshSession.findOne({
+    tokenHash,
+  });
+
+  if (
+    !session ||
+    session.revokedAt ||
+    session.expiresAt <= new Date()
+  ) {
+    throw new Error("Invalid or expired refresh session.");
+  }
+
+  const user = await User.findById(session.userId);
+
+  if (!user || !user.isActive) {
+    throw new Error("User account is unavailable.");
+  }
+
+  const csrfToken = generateCsrfToken();
+
+  session.csrfTokenHash = hashToken(csrfToken);
+  await session.save();
+
+  return csrfToken;
+};
+
 /**
  * Revoke a refresh session during logout.
  */
