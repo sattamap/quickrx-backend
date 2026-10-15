@@ -39,12 +39,34 @@ app.use(helmet());
  * Credentials are required because QuickRx uses
  * HttpOnly refresh-token cookies.
  */
+
+/**
+ * CORS
+ *
+ * Allow requests from the configured frontend origin.
+ * Credentials are required for refresh-token cookies.
+ */
+const frontendOrigin = process.env.FRONTEND_ORIGIN;
+
+if (!frontendOrigin) {
+  throw new Error(
+    "FRONTEND_ORIGIN environment variable is not configured.",
+  );
+}
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_ORIGIN,
+    origin: frontendOrigin,
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-CSRF-Token",
+    ],
   }),
 );
+
 
 /**
  * Parse JSON request bodies.
