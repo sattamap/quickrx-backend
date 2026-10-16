@@ -302,11 +302,11 @@ export const csrfTokenController = async (
     const refreshToken = req.cookies?.[refreshCookieName];
 
     if (!refreshToken) {
-      res.status(401).json({
-        success: false,
-        message: "Refresh session is missing.",
+      res.status(200).json({
+        success: true,
+        data: { csrfToken: null },
+        message: "No active refresh session.",
       });
-
       return;
     }
 
