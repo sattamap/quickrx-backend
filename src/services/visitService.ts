@@ -1,7 +1,8 @@
 import Visit, { type IVisit } from "../models/Visit";
 import Patient from "../models/Patient";
 import Prescription from "../models/Prescription";
-import type { Types } from "mongoose";
+import mongoose, { type Types } from "mongoose";
+import Investigation from "../models/Investigation";
 
 const mapVisit = (visit: IVisit) => ({
   id: visit._id.toString(),
@@ -75,24 +76,17 @@ export const createVisit = async (
 /**
  * Get all visits belonging to the authenticated doctor.
  */
-export const getAllVisits = async (
-  userId: Types.ObjectId,
-) => {
+export const getAllVisits = async (userId: Types.ObjectId) => {
   const patients = await Patient.find({
     userId,
   }).select("_id");
 
-  const patientIds = patients.map(
-    (patient) => patient._id,
-  );
+  const patientIds = patients.map((patient) => patient._id);
 
   const visits = await Visit.find({
     patientId: { $in: patientIds },
   })
-    .populate(
-      "patientId",
-      "patientId name age gender",
-    )
+    .populate("patientId", "patientId name age gender")
     .sort({
       visitDate: -1,
     });
@@ -105,10 +99,7 @@ export const getAllVisits = async (
  *
  * Ownership is verified through the patient.
  */
-export const getVisitById = async (
-  userId: Types.ObjectId,
-  id: string,
-) => {
+export const getVisitById = async (userId: Types.ObjectId, id: string) => {
   const visit = await Visit.findById(id).populate(
     "patientId",
     "patientId name age gender userId",
@@ -158,10 +149,7 @@ export const getVisitsByPatientId = async (
   const visits = await Visit.find({
     patientId: patient._id,
   })
-    .populate(
-      "patientId",
-      "patientId name age gender",
-    )
+    .populate("patientId", "patientId name age gender")
     .sort({
       visitDate: -1,
     });
@@ -197,19 +185,12 @@ export const updateVisit = async (
   }
 
   // Never allow the visit to be moved to another patient.
-  const {
-    patientId: _ignoredPatientId,
-    ...updateData
-  } = data;
+  const { patientId: _ignoredPatientId, ...updateData } = data;
 
-  const visit = await Visit.findByIdAndUpdate(
-    id,
-    updateData,
-    {
-      new: true,
-      runValidators: true,
-    },
-  );
+  const visit = await Visit.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  });
 
   if (!visit) {
     return null;
@@ -219,35 +200,57 @@ export const updateVisit = async (
 };
 
 /**
- * Delete a visit and its associated prescription.
+ * Delete a visit, its prescription, and investigations
+ * ordered during that visit.
  */
-export const deleteVisit = async (
-  userId: Types.ObjectId,
-  id: string,
-) => {
-  const visit = await Visit.findById(id);
+export const deleteVisit = async (userId: Types.ObjectId, id: string) => {
+  const session = await mongoose.startSession();
 
-  if (!visit) {
-    return null;
+  try {
+    let deletedVisit: ReturnType<typeof mapVisit> | null = null;
+
+    await session.withTransaction(async () => {
+      const visit = await Visit.findById(id).session(session);
+
+      if (!visit) {
+        deletedVisit = null;
+        return;
+      }
+
+      // Verify ownership through the associated patient.
+      const patient = await Patient.findOne({
+        _id: visit.patientId,
+        userId,
+      }).session(session);
+
+      if (!patient) {
+        deletedVisit = null;
+        return;
+      }
+
+      // Delete investigations ordered during this visit.
+      await Investigation.deleteMany({
+        patientId: visit.patientId,
+        orderedVisitId: visit._id,
+      }).session(session);
+
+      // Delete the prescription associated with this visit.
+      await Prescription.deleteOne({
+        patientId: visit.patientId,
+        visitId: visit._id,
+      }).session(session);
+
+      // Delete the visit itself.
+      await Visit.deleteOne({
+        _id: visit._id,
+        patientId: visit.patientId,
+      }).session(session);
+
+      deletedVisit = mapVisit(visit);
+    });
+
+    return deletedVisit;
+  } finally {
+    await session.endSession();
   }
-
-  // Verify ownership before deleting.
-  const patient = await Patient.findOne({
-    _id: visit.patientId,
-    userId,
-  });
-
-  if (!patient) {
-    return null;
-  }
-
-  // Delete the prescription associated with this visit, if one exists.
-  await Prescription.deleteOne({
-    visitId: visit._id,
-  });
-
-  // Finally, delete the visit.
-  await Visit.findByIdAndDelete(id);
-
-  return mapVisit(visit);
 };

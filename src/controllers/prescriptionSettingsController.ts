@@ -1,4 +1,5 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
+import { Types } from "mongoose";
 
 import {
   getPrescriptionSettings,
@@ -6,18 +7,43 @@ import {
   type PrescriptionSettingsInput,
 } from "../services/prescriptionSettingsService";
 
+const getAuthenticatedUserId = (
+  req: Request,
+): Types.ObjectId => {
+  if (!req.userId) {
+    throw new Error("Authentication required.");
+  }
+
+  return new Types.ObjectId(req.userId);
+};
+
+const isAuthenticationError = (error: unknown): boolean =>
+  error instanceof Error &&
+  error.message === "Authentication required.";
+
 export const getPrescriptionSettingsController = async (
-  _req: Request,
+  req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    const settings = await getPrescriptionSettings();
+    const userId = getAuthenticatedUserId(req);
+
+    const settings = await getPrescriptionSettings(userId);
 
     res.status(200).json({
       success: true,
       data: settings,
     });
   } catch (error) {
+    if (isAuthenticationError(error)) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
+
+      return;
+    }
+
     console.error(
       "Get prescription settings failed:",
       error,
@@ -36,11 +62,13 @@ export const updatePrescriptionSettingsController =
     res: Response,
   ): Promise<void> => {
     try {
+      const userId = getAuthenticatedUserId(req);
+
       const data =
         req.body as PrescriptionSettingsInput;
 
       const settings =
-        await updatePrescriptionSettings({
+        await updatePrescriptionSettings(userId, {
           defaultAdvice:
             typeof data.defaultAdvice === "string"
               ? data.defaultAdvice.trim()
@@ -101,6 +129,15 @@ export const updatePrescriptionSettingsController =
           "Prescription settings saved successfully.",
       });
     } catch (error) {
+      if (isAuthenticationError(error)) {
+        res.status(401).json({
+          success: false,
+          message: "Authentication required.",
+        });
+
+        return;
+      }
+
       console.error(
         "Update prescription settings failed:",
         error,

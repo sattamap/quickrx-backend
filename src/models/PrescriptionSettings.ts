@@ -1,9 +1,12 @@
 import mongoose, {
   Document,
   Schema,
+  Types,
 } from "mongoose";
 
 export interface IPrescriptionSettings extends Document {
+  userId: Types.ObjectId;
+
   defaultAdvice: string;
   defaultFollowUp: string;
 
@@ -24,6 +27,17 @@ export interface IPrescriptionSettings extends Document {
 const prescriptionSettingsSchema =
   new Schema<IPrescriptionSettings>(
     {
+      /**
+       * Owner of these settings. One settings document
+       * per doctor (enforced by the unique index).
+       */
+      userId: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+        unique: true,
+      },
+
       defaultAdvice: {
         type: String,
         trim: true,

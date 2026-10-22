@@ -9,6 +9,7 @@ import {
   addInvestigationResultController,
   reviewInvestigationController,
   cancelInvestigationController,
+  deleteInvestigationController,
 } from "../controllers/investigationController";
 
 import { validateBody } from "../middleware/validationMiddleware";
@@ -101,6 +102,12 @@ router.patch(
 router.patch(
   "/:id/cancel",
   cancelInvestigationController,
+);
+
+
+router.delete(
+  "/:id",
+  deleteInvestigationController,
 );
 
 /**

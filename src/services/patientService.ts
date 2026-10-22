@@ -1,7 +1,8 @@
 import Patient, { type IPatient } from "../models/Patient";
 import Visit from "../models/Visit";
 import Prescription from "../models/Prescription";
-import type { Types } from "mongoose";
+import mongoose, { type Types } from "mongoose";
+import Investigation from "../models/Investigation";
 
 const mapPatient = (patient: IPatient) => ({
   id: patient._id.toString(),
@@ -73,29 +74,39 @@ export interface UpdatePatientData {
  * The same patient ID can therefore exist for different doctors.
  */
 const generatePatientId = async (userId: Types.ObjectId): Promise<string> => {
-  const lastPatient = await Patient.findOne({
-    userId,
-    patientId: /^PAT-\d+$/,
-  })
-    .sort({ patientId: -1 })
-    .select("patientId")
-    .lean();
+  const lastPatients = await Patient.aggregate<{
+    patientNumber: number;
+  }>([
+    {
+      $match: {
+        userId,
+        patientId: /^PAT-\d+$/,
+      },
+    },
+    {
+      $project: {
+        patientNumber: {
+          $toInt: {
+            $arrayElemAt: [{ $split: ["$patientId", "-"] }, 1],
+          },
+        },
+      },
+    },
+    {
+      $sort: {
+        patientNumber: -1,
+      },
+    },
+    {
+      $limit: 1,
+    },
+  ]);
 
-  if (!lastPatient) {
-    return "PAT-001";
-  }
-
-  const match = lastPatient.patientId.match(/^PAT-(\d+)$/);
-
-  if (!match) {
-    return "PAT-001";
-  }
-
-  const nextNumber = Number(match[1]) + 1;
+  const nextNumber =
+    lastPatients.length > 0 ? lastPatients[0].patientNumber + 1 : 1;
 
   return `PAT-${String(nextNumber).padStart(3, "0")}`;
 };
-
 /**
  * Create a new patient.
  *
@@ -183,31 +194,53 @@ export const updatePatient = async (
 /**
  * Delete a patient and all related visits and prescriptions.
  */
+
+/**
+ * Delete a patient and all related investigations,
+ * prescriptions, and visits in a single transaction.
+ */
 export const deletePatient = async (userId: Types.ObjectId, id: string) => {
-  const patient = await Patient.findOne({
-    _id: id,
-    userId,
-  });
+  const session = await mongoose.startSession();
 
-  if (!patient) {
-    return null;
+  let deletedPatient: InstanceType<typeof Patient> | null = null;
+
+  try {
+    await session.withTransaction(async () => {
+      const patient = await Patient.findOne({
+        _id: id,
+        userId,
+      }).session(session);
+
+      if (!patient) {
+        return;
+      }
+
+      // Delete investigations belonging to this patient.
+      await Investigation.deleteMany({
+        patientId: patient._id,
+      }).session(session);
+
+      // Delete prescriptions belonging to this patient.
+      await Prescription.deleteMany({
+        patientId: patient._id,
+      }).session(session);
+
+      // Delete visits belonging to this patient.
+      await Visit.deleteMany({
+        patientId: patient._id,
+      }).session(session);
+
+      // Delete the patient.
+      await Patient.deleteOne({
+        _id: patient._id,
+        userId,
+      }).session(session);
+
+      deletedPatient = patient;
+    });
+
+    return deletedPatient ? mapPatient(deletedPatient) : null;
+  } finally {
+    await session.endSession();
   }
-
-  // Delete prescriptions belonging to this patient.
-  await Prescription.deleteMany({
-    patientId: patient._id,
-  });
-
-  // Delete visits belonging to this patient.
-  await Visit.deleteMany({
-    patientId: patient._id,
-  });
-
-  // Delete the patient itself.
-  await Patient.findOneAndDelete({
-    _id: id,
-    userId,
-  });
-
-  return mapPatient(patient);
 };

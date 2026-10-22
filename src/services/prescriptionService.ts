@@ -1,9 +1,8 @@
-import Prescription, {
-  type IPrescription,
-} from "../models/Prescription";
+import Prescription, { type IPrescription } from "../models/Prescription";
 import Patient from "../models/Patient";
 import Visit from "../models/Visit";
-import type { Types } from "mongoose";
+import mongoose, { type Types } from "mongoose";
+import Investigation from "../models/Investigation";
 
 const mapPrescription = (prescription: IPrescription) => ({
   id: prescription._id.toString(),
@@ -36,7 +35,7 @@ export interface CreatePrescriptionData {
   spectaclePrescription: IPrescription["spectaclePrescription"];
   advice?: string;
   followUp?: string;
-};
+}
 
 /**
  * Create a new prescription.
@@ -63,10 +62,7 @@ export const createPrescription = async (
   }
 
   // Verify that the visit belongs to the selected patient.
-  if (
-    visit.patientId.toString() !==
-    data.patientId.toString()
-  ) {
+  if (visit.patientId.toString() !== data.patientId.toString()) {
     throw new Error(
       "The prescription patient does not match the visit patient.",
     );
@@ -80,9 +76,7 @@ export const createPrescription = async (
   });
 
   if (existingPrescription) {
-    throw new Error(
-      "A prescription already exists for this visit.",
-    );
+    throw new Error("A prescription already exists for this visit.");
   }
 
   const prescription = await Prescription.create(data);
@@ -93,28 +87,18 @@ export const createPrescription = async (
 /**
  * Get all prescriptions belonging to the authenticated user.
  */
-export const getAllPrescriptions = async (
-  userId: Types.ObjectId,
-) => {
+export const getAllPrescriptions = async (userId: Types.ObjectId) => {
   const patients = await Patient.find({
     userId,
   }).select("_id");
 
-  const patientIds = patients.map(
-    (patient) => patient._id,
-  );
+  const patientIds = patients.map((patient) => patient._id);
 
   const prescriptions = await Prescription.find({
     patientId: { $in: patientIds },
   })
-    .populate(
-      "patientId",
-      "patientId name age gender",
-    )
-    .populate(
-      "visitId",
-      "visitDate chiefComplaint diagnosis",
-    )
+    .populate("patientId", "patientId name age gender")
+    .populate("visitId", "visitDate chiefComplaint diagnosis")
     .sort({
       prescriptionDate: -1,
     });
@@ -216,8 +200,7 @@ export const updatePrescription = async (
   id: string,
   data: Partial<CreatePrescriptionData>,
 ) => {
-  const existingPrescription =
-    await Prescription.findById(id);
+  const existingPrescription = await Prescription.findById(id);
 
   if (!existingPrescription) {
     return null;
@@ -241,15 +224,10 @@ export const updatePrescription = async (
     ...updateData
   } = data;
 
-  const prescription =
-    await Prescription.findByIdAndUpdate(
-      id,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      },
-    );
+  const prescription = await Prescription.findByIdAndUpdate(id, updateData, {
+    new: true,
+    runValidators: true,
+  });
 
   if (!prescription) {
     return null;
@@ -259,30 +237,52 @@ export const updatePrescription = async (
 };
 
 /**
- * Delete a prescription.
+ * Delete a prescription and its associated investigations.
  */
 export const deletePrescription = async (
   userId: Types.ObjectId,
   id: string,
 ) => {
-  const prescription =
-    await Prescription.findById(id);
+  const session = await mongoose.startSession();
 
-  if (!prescription) {
-    return null;
+  try {
+    let deletedPrescription: ReturnType<typeof mapPrescription> | null = null;
+
+    await session.withTransaction(async () => {
+      const prescription = await Prescription.findById(id).session(session);
+
+      if (!prescription) {
+        deletedPrescription = null;
+        return;
+      }
+
+      // Verify that the prescription belongs to this doctor's patient.
+      const patient = await Patient.findOne({
+        _id: prescription.patientId,
+        userId,
+      }).session(session);
+
+      if (!patient) {
+        deletedPrescription = null;
+        return;
+      }
+
+      // Delete investigations ordered during this visit.
+      await Investigation.deleteMany({
+        patientId: prescription.patientId,
+        orderedVisitId: prescription.visitId,
+      }).session(session);
+
+      // Delete the prescription.
+      await Prescription.deleteOne({
+        _id: prescription._id,
+      }).session(session);
+
+      deletedPrescription = mapPrescription(prescription);
+    });
+
+    return deletedPrescription;
+  } finally {
+    await session.endSession();
   }
-
-  // Verify ownership before deletion.
-  const patient = await Patient.findOne({
-    _id: prescription.patientId,
-    userId,
-  });
-
-  if (!patient) {
-    return null;
-  }
-
-  await Prescription.findByIdAndDelete(id);
-
-  return mapPrescription(prescription);
 };

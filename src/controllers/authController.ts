@@ -267,20 +267,57 @@ export const refreshController = async (
   } catch (error) {
     console.error("Refresh controller error:", error);
 
-    /**
-     * Clear potentially invalid credentials.
-     */
-    res.clearCookie(refreshCookieName, refreshCookieOptions);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unable to refresh authentication.";
 
-    res.clearCookie(csrfCookieName, csrfCookieOptions);
+    // Invalid CSRF: preserve cookies.
+    if (message === "Invalid CSRF token.") {
+      res.status(403).json({
+        success: false,
+        message: "Invalid CSRF token. Please retry the request.",
+      });
+      return;
+    }
 
-    res.status(401).json({
+    // A concurrent request may already have rotated this session.
+    // Preserve cookies and avoid revoking the entire token family.
+    if (message === "Refresh session was already rotated. Please retry.") {
+      res.status(409).json({
+        success: false,
+        message,
+      });
+      return;
+    }
+
+    const authenticationErrors = [
+      "Invalid or expired refresh session.",
+      "Refresh token reuse detected.",
+      "User account no longer exists.",
+      "This user account has been deactivated.",
+      "Your account registration has been rejected.",
+      "Your account is awaiting admin approval.",
+    ];
+
+    if (authenticationErrors.includes(message)) {
+      res.clearCookie(refreshCookieName, refreshCookieOptions);
+      res.clearCookie(csrfCookieName, csrfCookieOptions);
+
+      res.status(401).json({
+        success: false,
+        message,
+      });
+      return;
+    }
+
+    // Unexpected errors (e.g. database failures) should not automatically
+    // clear cookies or be misreported as an authentication failure.
+    res.status(500).json({
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : "Unable to refresh authentication.",
+      message: "Unable to refresh authentication.",
     });
+    return;
   }
 };
 

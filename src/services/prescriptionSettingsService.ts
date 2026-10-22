@@ -1,5 +1,7 @@
+import type { Types } from "mongoose";
+
 import PrescriptionSettings, {
-  IPrescriptionSettings,
+  type IPrescriptionSettings,
 } from "../models/PrescriptionSettings";
 
 export interface PrescriptionSettingsInput {
@@ -17,75 +19,105 @@ export interface PrescriptionSettingsInput {
   showSignature?: boolean;
 }
 
-export const getPrescriptionSettings =
-  async (): Promise<IPrescriptionSettings> => {
-    let settings = await PrescriptionSettings.findOne();
+const isDuplicateKeyError = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  (error as { code?: number }).code === 11000;
 
-    if (!settings) {
-      settings = await PrescriptionSettings.create({});
+/**
+ * Get this doctor's settings, creating the default
+ * settings document the first time.
+ *
+ * If two requests try to create it at the same moment,
+ * the unique userId index rejects the second one and we
+ * simply read the document the first one created.
+ */
+const findOrCreateSettings = async (
+  userId: Types.ObjectId,
+): Promise<IPrescriptionSettings> => {
+  const existing = await PrescriptionSettings.findOne({
+    userId,
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  try {
+    return await PrescriptionSettings.create({ userId });
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) {
+      throw error;
     }
 
-    return settings;
-  };
+    const created = await PrescriptionSettings.findOne({
+      userId,
+    });
 
-export const updatePrescriptionSettings =
-  async (
-    data: PrescriptionSettingsInput,
-  ): Promise<IPrescriptionSettings> => {
-    let settings = await PrescriptionSettings.findOne();
-
-    if (!settings) {
-      settings = await PrescriptionSettings.create({
-        ...data,
-      });
-
-      return settings;
+    if (!created) {
+      throw new Error("Unable to load prescription settings.");
     }
 
-    if (data.defaultAdvice !== undefined) {
-      settings.defaultAdvice = data.defaultAdvice;
-    }
+    return created;
+  }
+};
 
-    if (data.defaultFollowUp !== undefined) {
-      settings.defaultFollowUp = data.defaultFollowUp;
-    }
+export const getPrescriptionSettings = async (
+  userId: Types.ObjectId,
+): Promise<IPrescriptionSettings> => {
+  return findOrCreateSettings(userId);
+};
 
-    if (data.showDoctorPhone !== undefined) {
-      settings.showDoctorPhone = data.showDoctorPhone;
-    }
+export const updatePrescriptionSettings = async (
+  userId: Types.ObjectId,
+  data: PrescriptionSettingsInput,
+): Promise<IPrescriptionSettings> => {
+  const settings = await findOrCreateSettings(userId);
 
-    if (data.showDoctorEmail !== undefined) {
-      settings.showDoctorEmail = data.showDoctorEmail;
-    }
+  if (data.defaultAdvice !== undefined) {
+    settings.defaultAdvice = data.defaultAdvice;
+  }
 
-    if (data.showRegistrationNumber !== undefined) {
-      settings.showRegistrationNumber =
-        data.showRegistrationNumber;
-    }
+  if (data.defaultFollowUp !== undefined) {
+    settings.defaultFollowUp = data.defaultFollowUp;
+  }
 
-    if (data.showClinicAddress !== undefined) {
-      settings.showClinicAddress =
-        data.showClinicAddress;
-    }
+  if (data.showDoctorPhone !== undefined) {
+    settings.showDoctorPhone = data.showDoctorPhone;
+  }
 
-    if (data.showPatientId !== undefined) {
-      settings.showPatientId = data.showPatientId;
-    }
+  if (data.showDoctorEmail !== undefined) {
+    settings.showDoctorEmail = data.showDoctorEmail;
+  }
 
-    if (data.showDiagnosis !== undefined) {
-      settings.showDiagnosis = data.showDiagnosis;
-    }
+  if (data.showRegistrationNumber !== undefined) {
+    settings.showRegistrationNumber =
+      data.showRegistrationNumber;
+  }
 
-    if (data.showSpectaclePrescription !== undefined) {
-      settings.showSpectaclePrescription =
-        data.showSpectaclePrescription;
-    }
+  if (data.showClinicAddress !== undefined) {
+    settings.showClinicAddress = data.showClinicAddress;
+  }
 
-    if (data.showSignature !== undefined) {
-      settings.showSignature = data.showSignature;
-    }
+  if (data.showPatientId !== undefined) {
+    settings.showPatientId = data.showPatientId;
+  }
 
-    await settings.save();
+  if (data.showDiagnosis !== undefined) {
+    settings.showDiagnosis = data.showDiagnosis;
+  }
 
-    return settings;
-  };
+  if (data.showSpectaclePrescription !== undefined) {
+    settings.showSpectaclePrescription =
+      data.showSpectaclePrescription;
+  }
+
+  if (data.showSignature !== undefined) {
+    settings.showSignature = data.showSignature;
+  }
+
+  await settings.save();
+
+  return settings;
+};

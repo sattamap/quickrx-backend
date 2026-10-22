@@ -268,92 +268,64 @@ export const loginUser = async (data: LoginUserData) => {
  * In that situation, every still-active session in
  * family-1 is revoked.
  */
+
 export const refreshAccessToken = async (
   refreshToken: string,
   csrfToken: string,
 ) => {
   const tokenHash = hashToken(refreshToken);
+  const csrfTokenHash = hashToken(csrfToken);
 
-  /**
-   * IMPORTANT:
-   *
-   * We intentionally do NOT filter revokedAt here.
-   *
-   * We need to be able to detect whether the supplied
-   * refresh token has already been revoked.
-   */
-  const session = await RefreshSession.findOne({
-    tokenHash,
-  });
+  // Find the session, including revoked sessions, so reuse can be detected.
+  const session = await RefreshSession.findOne({ tokenHash });
 
   if (!session) {
     throw new Error("Invalid or expired refresh session.");
   }
 
-  /**
-   * Refresh-token reuse detection.
-   *
-   * If this token was already rotated/revoked, somebody
-   * is trying to use an old refresh token.
-   *
-   * Revoke every active session belonging to the same
-   * token family.
-   */
+  // A token already revoked before this request began is treated as reuse.
   if (session.revokedAt) {
     await RefreshSession.updateMany(
       {
         userId: session.userId,
         familyId: session.familyId,
-        revokedAt: {
-          $exists: false,
-        },
+        revokedAt: { $exists: false },
       },
       {
-        $set: {
-          revokedAt: new Date(),
-        },
+        $set: { revokedAt: new Date() },
       },
     );
 
     throw new Error("Refresh token reuse detected.");
   }
 
-  /**
-   * Check refresh-token expiration.
-   */
+  // Check expiry.
   if (session.expiresAt <= new Date()) {
-    /**
-     * Mark the expired session as revoked.
-     */
-    session.revokedAt = new Date();
-
-    await session.save();
+    await RefreshSession.updateOne(
+      {
+        _id: session._id,
+        revokedAt: { $exists: false },
+      },
+      {
+        $set: { revokedAt: new Date() },
+      },
+    );
 
     throw new Error("Invalid or expired refresh session.");
   }
 
-  /**
-   * Verify the CSRF token against the hash stored
-   * with this refresh session.
-   */
-  const csrfTokenHash = hashToken(csrfToken);
-
+  // Validate CSRF before attempting to rotate the session.
   if (!tokensMatch(csrfTokenHash, session.csrfTokenHash)) {
     throw new Error("Invalid CSRF token.");
   }
 
-  /**
-   * Verify that the user still exists.
-   */
+  // Preserve your existing account-eligibility rules.
   const user = await User.findById(session.userId);
 
   if (!user) {
     throw new Error("User account no longer exists.");
   }
 
-  /**
-   * Verify that the account is still active.
-   */
   if (!user.isActive) {
     throw new Error("This user account has been deactivated.");
   }
@@ -366,40 +338,62 @@ export const refreshAccessToken = async (
     );
   }
 
-  /**
-   * Revoke the old refresh session.
-   */
-  session.revokedAt = new Date();
+  // Atomically claim the old session.
+  // Only one concurrent request can successfully revoke this active session.
+  const claimedSession = await RefreshSession.findOneAndUpdate(
+    {
+      _id: session._id,
+      tokenHash,
+      csrfTokenHash,
+      expiresAt: { $gt: new Date() },
+      revokedAt: { $exists: false },
+    },
+    {
+      $set: { revokedAt: new Date() },
+    },
+    {
+      new: false,
+    },
+  );
 
-  await session.save();
+  if (!claimedSession) {
+    // Another request may have changed the session after our initial read.
+    // Do not revoke the whole family just because this request lost the race.
+    const latestSession = await RefreshSession.findById(session._id);
 
-  /**
-   * Generate a new short-lived access token.
-   */
+    if (!latestSession || latestSession.expiresAt <= new Date()) {
+      throw new Error("Invalid or expired refresh session.");
+    }
+
+    if (!tokensMatch(latestSession.csrfTokenHash, csrfTokenHash)) {
+      throw new Error("Invalid CSRF token.");
+    }
+
+    if (latestSession.revokedAt) {
+      throw new Error(
+        "Refresh session was already rotated. Please retry.",
+      );
+    }
+
+    throw new Error("Invalid or expired refresh session.");
+  }
+
+  // Create the replacement session in the SAME token family.
   const accessToken = generateAccessToken(user);
-
-  /**
-   * IMPORTANT:
-   *
-   * Keep the SAME familyId.
-   *
-   * This allows us to detect reuse of any old token
-   * belonging to this refresh-token rotation chain.
-   */
-  const newRefreshSession = await createRefreshSession(user, session.familyId);
+  const newRefreshSession = await createRefreshSession(
+    user,
+    session.familyId,
+  );
 
   return {
     user: mapUser(user),
-
     accessToken,
-
     refreshToken: newRefreshSession.refreshToken,
-
     csrfToken: newRefreshSession.csrfToken,
-
     refreshTokenExpiresAt: newRefreshSession.expiresAt,
   };
 };
+
 
 /**
  * Issue a fresh CSRF token for an existing refresh session.
