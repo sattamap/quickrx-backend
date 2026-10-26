@@ -1,3 +1,4 @@
+
 import mongoose, {
   Document,
   Schema,
@@ -20,6 +21,13 @@ export interface IPrescriptionSettings extends Document {
   showSpectaclePrescription: boolean;
   showSignature: boolean;
 
+  // Prescription footer settings
+  showChamberFooter: boolean;
+  footerHeading: string;
+  visitingHours: string;
+  serialBookingPhone: string;
+  weeklyClosingDay: string;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +46,7 @@ const prescriptionSettingsSchema =
         unique: true,
       },
 
+      // Default prescription text
       defaultAdvice: {
         type: String,
         trim: true,
@@ -50,6 +59,7 @@ const prescriptionSettingsSchema =
         default: "",
       },
 
+      // Doctor and clinic display settings
       showDoctorPhone: {
         type: Boolean,
         default: true,
@@ -70,6 +80,7 @@ const prescriptionSettingsSchema =
         default: true,
       },
 
+      // Prescription content display settings
       showPatientId: {
         type: Boolean,
         default: true,
@@ -88,6 +99,36 @@ const prescriptionSettingsSchema =
       showSignature: {
         type: Boolean,
         default: true,
+      },
+
+      // Prescription footer settings
+      showChamberFooter: {
+        type: Boolean,
+        default: true,
+      },
+
+      footerHeading: {
+        type: String,
+        trim: true,
+        default: "রোগী দেখার সময় ও সিরিয়াল",
+      },
+
+      visitingHours: {
+        type: String,
+        trim: true,
+        default: "বিকাল ৫টা থেকে রাত ৯টা পর্যন্ত",
+      },
+
+      serialBookingPhone: {
+        type: String,
+        trim: true,
+        default: "০১৯২১৯০৯১১",
+      },
+
+      weeklyClosingDay: {
+        type: String,
+        trim: true,
+        default: "প্রতি শুক্রবার",
       },
     },
     {

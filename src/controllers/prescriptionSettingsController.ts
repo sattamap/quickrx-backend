@@ -1,3 +1,4 @@
+
 import type { Request, Response } from "express";
 import { Types } from "mongoose";
 
@@ -17,7 +18,9 @@ const getAuthenticatedUserId = (
   return new Types.ObjectId(req.userId);
 };
 
-const isAuthenticationError = (error: unknown): boolean =>
+const isAuthenticationError = (
+  error: unknown,
+): boolean =>
   error instanceof Error &&
   error.message === "Authentication required.";
 
@@ -69,6 +72,7 @@ export const updatePrescriptionSettingsController =
 
       const settings =
         await updatePrescriptionSettings(userId, {
+          // Default prescription text
           defaultAdvice:
             typeof data.defaultAdvice === "string"
               ? data.defaultAdvice.trim()
@@ -79,6 +83,7 @@ export const updatePrescriptionSettingsController =
               ? data.defaultFollowUp.trim()
               : undefined,
 
+          // Doctor and clinic information visibility
           showDoctorPhone:
             typeof data.showDoctorPhone === "boolean"
               ? data.showDoctorPhone
@@ -100,6 +105,7 @@ export const updatePrescriptionSettingsController =
               ? data.showClinicAddress
               : undefined,
 
+          // Prescription content visibility
           showPatientId:
             typeof data.showPatientId === "boolean"
               ? data.showPatientId
@@ -119,6 +125,33 @@ export const updatePrescriptionSettingsController =
           showSignature:
             typeof data.showSignature === "boolean"
               ? data.showSignature
+              : undefined,
+
+          // Chamber footer visibility
+          showChamberFooter:
+            typeof data.showChamberFooter === "boolean"
+              ? data.showChamberFooter
+              : undefined,
+
+          // Chamber footer content
+          footerHeading:
+            typeof data.footerHeading === "string"
+              ? data.footerHeading.trim()
+              : undefined,
+
+          visitingHours:
+            typeof data.visitingHours === "string"
+              ? data.visitingHours.trim()
+              : undefined,
+
+          serialBookingPhone:
+            typeof data.serialBookingPhone === "string"
+              ? data.serialBookingPhone.trim()
+              : undefined,
+
+          weeklyClosingDay:
+            typeof data.weeklyClosingDay === "string"
+              ? data.weeklyClosingDay.trim()
               : undefined,
         });
 

@@ -1,3 +1,4 @@
+
 import type { Types } from "mongoose";
 
 import PrescriptionSettings, {
@@ -17,6 +18,13 @@ export interface PrescriptionSettingsInput {
   showDiagnosis?: boolean;
   showSpectaclePrescription?: boolean;
   showSignature?: boolean;
+
+  // Prescription footer settings
+  showChamberFooter?: boolean;
+  footerHeading?: string;
+  visitingHours?: string;
+  serialBookingPhone?: string;
+  weeklyClosingDay?: string;
 }
 
 const isDuplicateKeyError = (error: unknown): boolean =>
@@ -29,9 +37,9 @@ const isDuplicateKeyError = (error: unknown): boolean =>
  * Get this doctor's settings, creating the default
  * settings document the first time.
  *
- * If two requests try to create it at the same moment,
- * the unique userId index rejects the second one and we
- * simply read the document the first one created.
+ * If two requests try to create it simultaneously,
+ * the unique userId index rejects the second request.
+ * In that case, read the document created by the first.
  */
 const findOrCreateSettings = async (
   userId: Types.ObjectId,
@@ -63,18 +71,26 @@ const findOrCreateSettings = async (
   }
 };
 
+/**
+ * Get the authenticated doctor's prescription settings.
+ */
 export const getPrescriptionSettings = async (
   userId: Types.ObjectId,
 ): Promise<IPrescriptionSettings> => {
   return findOrCreateSettings(userId);
 };
 
+/**
+ * Update only the settings fields provided by the caller.
+ * Fields omitted from the request remain unchanged.
+ */
 export const updatePrescriptionSettings = async (
   userId: Types.ObjectId,
   data: PrescriptionSettingsInput,
 ): Promise<IPrescriptionSettings> => {
   const settings = await findOrCreateSettings(userId);
 
+  // Default prescription text
   if (data.defaultAdvice !== undefined) {
     settings.defaultAdvice = data.defaultAdvice;
   }
@@ -83,6 +99,7 @@ export const updatePrescriptionSettings = async (
     settings.defaultFollowUp = data.defaultFollowUp;
   }
 
+  // Doctor and clinic display settings
   if (data.showDoctorPhone !== undefined) {
     settings.showDoctorPhone = data.showDoctorPhone;
   }
@@ -100,6 +117,7 @@ export const updatePrescriptionSettings = async (
     settings.showClinicAddress = data.showClinicAddress;
   }
 
+  // Prescription content display settings
   if (data.showPatientId !== undefined) {
     settings.showPatientId = data.showPatientId;
   }
@@ -115,6 +133,27 @@ export const updatePrescriptionSettings = async (
 
   if (data.showSignature !== undefined) {
     settings.showSignature = data.showSignature;
+  }
+
+  // Prescription footer settings
+  if (data.showChamberFooter !== undefined) {
+    settings.showChamberFooter = data.showChamberFooter;
+  }
+
+  if (data.footerHeading !== undefined) {
+    settings.footerHeading = data.footerHeading;
+  }
+
+  if (data.visitingHours !== undefined) {
+    settings.visitingHours = data.visitingHours;
+  }
+
+  if (data.serialBookingPhone !== undefined) {
+    settings.serialBookingPhone = data.serialBookingPhone;
+  }
+
+  if (data.weeklyClosingDay !== undefined) {
+    settings.weeklyClosingDay = data.weeklyClosingDay;
   }
 
   await settings.save();

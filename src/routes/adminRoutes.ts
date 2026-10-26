@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import { authMiddleware } from "../middleware/authMiddleware";
@@ -10,6 +9,8 @@ import {
   updateDoctorActiveStatusController,
 } from "../controllers/adminController";
 
+import { createReceptionistController } from "../controllers/receptionistController";
+
 const router = Router();
 
 // Every route in this file requires an authenticated admin.
@@ -19,15 +20,11 @@ router.use(authMiddleware, requireAdmin);
 router.get("/doctors", getDoctorsController);
 
 // Approve or reject a doctor's registration.
-router.patch(
-  "/doctors/:id/approval",
-  updateDoctorApprovalController,
-);
+router.patch("/doctors/:id/approval", updateDoctorApprovalController);
 
 // Activate or deactivate a doctor.
-router.patch(
-  "/doctors/:id/status",
-  updateDoctorActiveStatusController,
-);
+router.patch("/doctors/:id/status", updateDoctorActiveStatusController);
+
+router.post("/receptionists", createReceptionistController);
 
 export default router;

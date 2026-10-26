@@ -11,6 +11,7 @@ import prescriptionRoutes from "./routes/prescriptionRoutes";
 import doctorProfileRoutes from "./routes/doctorProfileRoutes";
 import prescriptionSettingsRoutes from "./routes/prescriptionSettingsRoutes";
 import investigationRoutes from "./routes/investigationRoutes";
+import bookingRoutes from "./routes/bookingRoutes";
 
 import { authMiddleware } from "./middleware/authMiddleware";
 import errorMiddleware from "./middleware/errorMiddleware";
@@ -49,9 +50,7 @@ app.use(helmet());
 const frontendOrigin = process.env.FRONTEND_ORIGIN;
 
 if (!frontendOrigin) {
-  throw new Error(
-    "FRONTEND_ORIGIN environment variable is not configured.",
-  );
+  throw new Error("FRONTEND_ORIGIN environment variable is not configured.");
 }
 
 app.use(
@@ -59,14 +58,9 @@ app.use(
     origin: frontendOrigin,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-CSRF-Token",
-    ],
+    allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   }),
 );
-
 
 /**
  * Parse JSON request bodies.
@@ -121,6 +115,7 @@ app.use(
   prescriptionSettingsRoutes,
 );
 app.use("/api/investigations", authMiddleware, investigationRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 /**
  * Global error handler.

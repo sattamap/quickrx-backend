@@ -1,7 +1,7 @@
 
 import { Schema, model, type Document } from "mongoose";
 
-export type UserRole = "doctor" | "admin";
+export type UserRole = "doctor" | "admin" | "receptionist";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export interface IUser extends Document {
@@ -39,7 +39,7 @@ const userSchema = new Schema<IUser>(
 
     role: {
       type: String,
-      enum: ["doctor", "admin"],
+      enum: ["doctor", "admin", "receptionist"],
       default: "doctor",
       required: true,
     },
