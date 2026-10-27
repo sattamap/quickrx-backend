@@ -11,6 +11,11 @@ import {
 
 import { createReceptionistController } from "../controllers/receptionistController";
 
+import {
+  createSyncJob,
+  getLatestSyncJob,
+} from "../controllers/syncController";
+
 const router = Router();
 
 // Every route in this file requires an authenticated admin.
@@ -26,5 +31,9 @@ router.patch("/doctors/:id/approval", updateDoctorApprovalController);
 router.patch("/doctors/:id/status", updateDoctorActiveStatusController);
 
 router.post("/receptionists", createReceptionistController);
+
+// Synchronization controls: admin authentication is already applied above.
+router.post("/sync-jobs", createSyncJob);
+router.get("/sync-jobs/latest", getLatestSyncJob);
 
 export default router;
