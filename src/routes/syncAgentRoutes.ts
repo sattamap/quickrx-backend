@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import syncAgentAuth from "../middleware/syncAgentAuth";
 import {
+  checkSyncAgentAuth,
   claimSyncJob,
   completeSyncJob,
   failSyncJob,
@@ -23,7 +24,7 @@ const syncAgentLimiter = rateLimit({
 router.use(syncAgentLimiter);
 
 router.use(syncAgentAuth);
-
+router.get("/health", checkSyncAgentAuth);
 router.post("/claim", claimSyncJob);
 router.post("/:id/success", completeSyncJob);
 router.post("/:id/failure", failSyncJob);
