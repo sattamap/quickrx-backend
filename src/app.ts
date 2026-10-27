@@ -12,6 +12,7 @@ import doctorProfileRoutes from "./routes/doctorProfileRoutes";
 import prescriptionSettingsRoutes from "./routes/prescriptionSettingsRoutes";
 import investigationRoutes from "./routes/investigationRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
+import syncAgentRoutes from "./routes/syncAgentRoutes";
 
 import { authMiddleware } from "./middleware/authMiddleware";
 import errorMiddleware from "./middleware/errorMiddleware";
@@ -116,6 +117,7 @@ app.use(
 );
 app.use("/api/investigations", authMiddleware, investigationRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/sync-agent", syncAgentRoutes);
 
 /**
  * Global error handler.
