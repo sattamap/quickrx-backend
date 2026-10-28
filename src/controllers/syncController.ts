@@ -1,4 +1,3 @@
-
 import type { Request, Response } from "express";
 import SyncJob from "../models/SyncJob";
 
@@ -26,10 +25,12 @@ export const createSyncJob = async (
 
     res.status(201).json({
       success: true,
-      job: {
-        id: job.id,
-        status: job.status,
-        createdAt: job.createdAt,
+      data: {
+        job: {
+          id: job._id.toString(),
+          status: job.status,
+          createdAt: job.createdAt,
+        },
       },
     });
   } catch (error) {
@@ -46,6 +47,7 @@ export const createSyncJob = async (
  * Return the latest synchronization job.
  * The admin route middleware protects this endpoint.
  */
+
 export const getLatestSyncJob = async (
   _req: Request,
   res: Response,
@@ -53,24 +55,24 @@ export const getLatestSyncJob = async (
   try {
     const job = await SyncJob.findOne()
       .sort({ createdAt: -1 })
-      .select(
-        "status createdAt startedAt completedAt result errorMessage",
-      )
+      .select("status createdAt startedAt completedAt result errorMessage")
       .lean();
 
     res.status(200).json({
       success: true,
-      job: job
-        ? {
-            id: job._id.toString(),
-            status: job.status,
-            createdAt: job.createdAt,
-            startedAt: job.startedAt,
-            completedAt: job.completedAt,
-            result: job.result,
-            errorMessage: job.errorMessage,
-          }
-        : null,
+      data: {
+        job: job
+          ? {
+              id: job._id.toString(),
+              status: job.status,
+              createdAt: job.createdAt,
+              startedAt: job.startedAt,
+              completedAt: job.completedAt,
+              result: job.result,
+              errorMessage: job.errorMessage,
+            }
+          : null,
+      },
     });
   } catch (error) {
     console.error("Failed to load sync job:", error);
@@ -81,3 +83,4 @@ export const getLatestSyncJob = async (
     });
   }
 };
+
