@@ -9,7 +9,11 @@ import {
   updateDoctorActiveStatusController,
 } from "../controllers/adminController";
 
-import { createReceptionistController } from "../controllers/receptionistController";
+import {
+  createReceptionistController,
+  getReceptionistsController,
+  deleteReceptionistController,
+} from "../controllers/receptionistController";
 
 import {
   createSyncJob,
@@ -30,7 +34,10 @@ router.patch("/doctors/:id/approval", updateDoctorApprovalController);
 // Activate or deactivate a doctor.
 router.patch("/doctors/:id/status", updateDoctorActiveStatusController);
 
+// Receptionist management.
 router.post("/receptionists", createReceptionistController);
+router.get("/receptionists", getReceptionistsController);
+router.delete("/receptionists/:id", deleteReceptionistController);
 
 // Synchronization controls: admin authentication is already applied above.
 router.post("/sync-jobs", createSyncJob);

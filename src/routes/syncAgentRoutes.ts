@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import syncAgentAuth from "../middleware/syncAgentAuth";
@@ -12,7 +13,7 @@ const router = Router();
 
 const syncAgentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 60,
+  limit: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -21,9 +22,10 @@ const syncAgentLimiter = rateLimit({
   },
 });
 
+// Authenticate the agent before counting its requests.
+router.use(syncAgentAuth);
 router.use(syncAgentLimiter);
 
-router.use(syncAgentAuth);
 router.get("/health", checkSyncAgentAuth);
 router.post("/claim", claimSyncJob);
 router.post("/:id/success", completeSyncJob);

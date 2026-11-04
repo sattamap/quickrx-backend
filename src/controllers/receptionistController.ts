@@ -1,5 +1,5 @@
-
 import type { Request, Response } from "express";
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 import User from "../models/User";
@@ -113,6 +113,81 @@ export const createReceptionistController = async (
     res.status(500).json({
       success: false,
       message: "Unable to create receptionist account.",
+    });
+  }
+};
+
+export const getReceptionistsController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const receptionists = await User.find({
+      role: "receptionist",
+    })
+      .select("name email role isActive createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      data: receptionists.map((user) => ({
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+      })),
+    });
+  } catch (error: unknown) {
+    console.error("Get receptionists error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to load receptionist accounts.",
+    });
+  }
+};
+
+export const deleteReceptionistController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const id = req.params.id;
+
+    if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid receptionist ID.",
+      });
+      return;
+    }
+
+    const deletedReceptionist = await User.findOneAndDelete({
+      _id: id,
+      role: "receptionist",
+    });
+
+    if (!deletedReceptionist) {
+      res.status(404).json({
+        success: false,
+        message: "Receptionist account not found.",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Receptionist account deleted successfully.",
+    });
+  } catch (error: unknown) {
+    console.error("Delete receptionist error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to delete receptionist account.",
     });
   }
 };
