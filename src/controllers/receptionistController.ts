@@ -1,8 +1,14 @@
+
 import type { Request, Response } from "express";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
 import User from "../models/User";
+import { revokeAllUserSessions } from "../services/authService";
+
+// ======================================================
+// CREATE RECEPTIONIST
+// ======================================================
 
 export const createReceptionistController = async (
   req: Request,
@@ -91,6 +97,7 @@ export const createReceptionistController = async (
         email: receptionist.email,
         role: receptionist.role,
         isActive: receptionist.isActive,
+        createdAt: receptionist.createdAt,
       },
     });
   } catch (error: unknown) {
@@ -116,6 +123,10 @@ export const createReceptionistController = async (
     });
   }
 };
+
+// ======================================================
+// GET ALL RECEPTIONISTS
+// ======================================================
 
 export const getReceptionistsController = async (
   req: Request,
@@ -150,13 +161,22 @@ export const getReceptionistsController = async (
   }
 };
 
-export const deleteReceptionistController = async (
+// ======================================================
+// ACTIVATE / DEACTIVATE RECEPTIONIST
+// ======================================================
+
+export const updateReceptionistStatusController = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const id = req.params.id;
 
+    const { isActive } = req.body as {
+      isActive?: unknown;
+    };
+
+    // Validate receptionist ID.
     if (typeof id !== "string" || !mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({
         success: false,
@@ -165,12 +185,31 @@ export const deleteReceptionistController = async (
       return;
     }
 
-    const deletedReceptionist = await User.findOneAndDelete({
-      _id: id,
-      role: "receptionist",
-    });
+    // Validate account status.
+    if (typeof isActive !== "boolean") {
+      res.status(400).json({
+        success: false,
+        message: "A valid account status is required.",
+      });
+      return;
+    }
 
-    if (!deletedReceptionist) {
+    // Only receptionist accounts can be updated.
+    const receptionist = await User.findOneAndUpdate(
+      {
+        _id: id,
+        role: "receptionist",
+      },
+      {
+        $set: { isActive },
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    ).select("name email role isActive createdAt");
+
+    if (!receptionist) {
       res.status(404).json({
         success: false,
         message: "Receptionist account not found.",
@@ -178,16 +217,42 @@ export const deleteReceptionistController = async (
       return;
     }
 
+    // Revoke all refresh sessions when deactivating.
+    // Reactivated users must log in again.
+    if (!isActive) {
+      try {
+        await revokeAllUserSessions(receptionist._id);
+      } catch (sessionError: unknown) {
+        // The account is already inactive.
+        // Existing authentication middleware and refresh
+        // checks will reject access to inactive accounts.
+        console.error(
+          "Failed to revoke receptionist refresh sessions:",
+          sessionError,
+        );
+      }
+    }
+
     res.status(200).json({
       success: true,
-      message: "Receptionist account deleted successfully.",
+      message: `Receptionist account ${
+        isActive ? "activated" : "deactivated"
+      } successfully.`,
+      data: {
+        id: receptionist._id.toString(),
+        name: receptionist.name,
+        email: receptionist.email,
+        role: receptionist.role,
+        isActive: receptionist.isActive,
+        createdAt: receptionist.createdAt,
+      },
     });
   } catch (error: unknown) {
-    console.error("Delete receptionist error:", error);
+    console.error("Update receptionist status error:", error);
 
     res.status(500).json({
       success: false,
-      message: "Unable to delete receptionist account.",
+      message: "Unable to update receptionist account status.",
     });
   }
 };

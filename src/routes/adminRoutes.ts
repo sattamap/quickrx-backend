@@ -12,13 +12,10 @@ import {
 import {
   createReceptionistController,
   getReceptionistsController,
-  deleteReceptionistController,
+  updateReceptionistStatusController,
 } from "../controllers/receptionistController";
 
-import {
-  createSyncJob,
-  getLatestSyncJob,
-} from "../controllers/syncController";
+import { createSyncJob, getLatestSyncJob } from "../controllers/syncController";
 
 const router = Router();
 
@@ -37,7 +34,7 @@ router.patch("/doctors/:id/status", updateDoctorActiveStatusController);
 // Receptionist management.
 router.post("/receptionists", createReceptionistController);
 router.get("/receptionists", getReceptionistsController);
-router.delete("/receptionists/:id", deleteReceptionistController);
+router.patch("/receptionists/:id/status", updateReceptionistStatusController);
 
 // Synchronization controls: admin authentication is already applied above.
 router.post("/sync-jobs", createSyncJob);
