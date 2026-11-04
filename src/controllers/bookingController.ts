@@ -9,6 +9,7 @@ import {
   getAvailableDoctors,
   getReceptionistTodayBookings,
   getReceptionistBookingsByDate,
+  getDoctorBookingsByDate,
 } from "../services/bookingService";
 
 type BookingUpdateReason = "created" | "status_changed";
@@ -389,6 +390,66 @@ export const getReceptionistBookingsByDateController = async (
     res.status(500).json({
       success: false,
       message: "Unable to retrieve booking history.",
+    });
+  }
+};
+
+/**
+ * GET /api/bookings/date?date=YYYY-MM-DD
+ * Retrieves bookings for the authenticated doctor on a selected date.
+ */
+export const getDoctorBookingsByDateController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    if (req.userRole !== "doctor" || !req.userId) {
+      res.status(403).json({
+        success: false,
+        message: "Only doctors can view their booking history.",
+      });
+      return;
+    }
+
+    const date = req.query.date;
+
+    if (typeof date !== "string") {
+      res.status(400).json({
+        success: false,
+        message: "Please provide a booking date.",
+      });
+      return;
+    }
+
+    // Never accept a doctor ID from the frontend.
+    const bookings = await getDoctorBookingsByDate(req.userId, date);
+
+    res.status(200).json({
+      success: true,
+      message: "Doctor booking history retrieved successfully.",
+      data: bookings.map((booking) => ({
+        id: booking._id.toString(),
+        patientName: booking.patientName,
+        serialNumber: booking.serialNumber,
+        bookingDate: booking.bookingDate,
+        status: booking.status,
+        bookedAt: booking.createdAt,
+      })),
+    });
+  } catch (error: unknown) {
+    if (error instanceof BookingServiceError) {
+      res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+      return;
+    }
+
+    console.error("Get doctor bookings by date error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to retrieve doctor booking history.",
     });
   }
 };

@@ -284,7 +284,6 @@ export const getReceptionistTodayBookings = async (
   }).sort({ serialNumber: 1 });
 };
 
-
 /**
  * Retrieves bookings created by the authenticated receptionist
  * for a selected date in Bangladesh (YYYY-MM-DD).
@@ -301,9 +300,8 @@ export const getReceptionistBookingsByDate = async (
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) ||
     !Number.isFinite(Date.parse(`${bookingDate}T00:00:00.000Z`)) ||
-    new Date(`${bookingDate}T00:00:00.000Z`)
-      .toISOString()
-      .slice(0, 10) !== bookingDate
+    new Date(`${bookingDate}T00:00:00.000Z`).toISOString().slice(0, 10) !==
+      bookingDate
   ) {
     throw new BookingServiceError(
       "Please provide a valid booking date in YYYY-MM-DD format.",
@@ -320,10 +318,7 @@ export const getReceptionistBookingsByDate = async (
     receptionist.role !== "receptionist" ||
     !receptionist.isActive
   ) {
-    throw new BookingServiceError(
-      "Receptionist account is unavailable.",
-      403,
-    );
+    throw new BookingServiceError("Receptionist account is unavailable.", 403);
   }
 
   return Booking.find({
@@ -332,3 +327,47 @@ export const getReceptionistBookingsByDate = async (
   }).sort({ serialNumber: 1 });
 };
 
+/**
+ * Retrieves bookings for one doctor on a selected date in Bangladesh.
+ * The authenticated doctor's ID is supplied by the controller.
+ */
+export const getDoctorBookingsByDate = async (
+  doctorId: string,
+  bookingDate: string,
+): Promise<IBooking[]> => {
+  if (!mongoose.isValidObjectId(doctorId)) {
+    throw new BookingServiceError("Invalid doctor ID.", 400);
+  }
+
+  // Validate the date format and actual calendar date.
+  if (
+    typeof bookingDate !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) ||
+    !Number.isFinite(Date.parse(`${bookingDate}T00:00:00.000Z`)) ||
+    new Date(`${bookingDate}T00:00:00.000Z`).toISOString().slice(0, 10) !==
+      bookingDate
+  ) {
+    throw new BookingServiceError(
+      "Please provide a valid booking date in YYYY-MM-DD format.",
+      400,
+    );
+  }
+
+  const doctor = await User.findById(doctorId)
+    .select("_id role approvalStatus isActive")
+    .lean();
+
+  if (
+    !doctor ||
+    doctor.role !== "doctor" ||
+    !doctor.isActive ||
+    doctor.approvalStatus !== "approved"
+  ) {
+    throw new BookingServiceError("The doctor account is unavailable.", 403);
+  }
+
+  return Booking.find({
+    doctorId: new mongoose.Types.ObjectId(doctorId),
+    bookingDate,
+  }).sort({ serialNumber: 1 });
+};

@@ -13,6 +13,7 @@ import {
   getAvailableDoctorsController,
   getReceptionistTodayBookingsController,
   getReceptionistBookingsByDateController,
+  getDoctorBookingsByDateController,
 } from "../controllers/bookingController";
 
 const router = Router();
@@ -48,6 +49,7 @@ router.get("/doctors", getAvailableDoctorsController);
 
 router.get("/mine/today", getReceptionistTodayBookingsController);
 router.get("/mine", getReceptionistBookingsByDateController);
+router.get("/date", getDoctorBookingsByDateController);
 router.patch("/:id/status", updateBookingStatusController);
 
 export default router;
