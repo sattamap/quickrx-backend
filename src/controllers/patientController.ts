@@ -7,6 +7,7 @@ import {
   getPatientById,
   updatePatient,
   deletePatient,
+  bulkDeletePatients,
 } from "../services/patientService";
 
 const getAuthenticatedUserId = (req: Request): Types.ObjectId => {
@@ -66,10 +67,7 @@ export const getPatientController = async (
   try {
     const userId = getAuthenticatedUserId(req);
 
-    const patient = await getPatientById(
-      userId,
-      req.params.id,
-    );
+    const patient = await getPatientById(userId, req.params.id);
 
     if (!patient) {
       res.status(404).json({
@@ -96,11 +94,7 @@ export const updatePatientController = async (
   try {
     const userId = getAuthenticatedUserId(req);
 
-    const patient = await updatePatient(
-      userId,
-      req.params.id,
-      req.body,
-    );
+    const patient = await updatePatient(userId, req.params.id, req.body);
 
     if (!patient) {
       res.status(404).json({
@@ -127,10 +121,7 @@ export const deletePatientController = async (
   try {
     const userId = getAuthenticatedUserId(req);
 
-    const patient = await deletePatient(
-      userId,
-      req.params.id,
-    );
+    const patient = await deletePatient(userId, req.params.id);
 
     if (!patient) {
       res.status(404).json({
@@ -143,6 +134,51 @@ export const deletePatientController = async (
     res.status(200).json({
       success: true,
       message: "Patient deleted successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkDeletePatientsController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = getAuthenticatedUserId(req);
+    const { patientIds } = req.body;
+
+    if (
+      !Array.isArray(patientIds) ||
+      patientIds.length === 0 ||
+      patientIds.length > 500 ||
+      patientIds.some(
+        (id: unknown) => typeof id !== "string" || !Types.ObjectId.isValid(id),
+      )
+    ) {
+      res.status(400).json({
+        success: false,
+        message: "Please provide between 1 and 500 valid patient IDs.",
+      });
+      return;
+    }
+
+    const result = await bulkDeletePatients(userId, patientIds);
+
+    if (result.deletedCount === 0) {
+      res.status(404).json({
+        success: false,
+        message:
+          "One or more patients were not found or do not belong to your account. No patients were deleted.",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `${result.deletedCount} patient(s) and their related medical records deleted successfully.`,
+      data: result,
     });
   } catch (error) {
     next(error);

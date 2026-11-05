@@ -244,3 +244,93 @@ export const deletePatient = async (userId: Types.ObjectId, id: string) => {
     await session.endSession();
   }
 };
+
+/**
+ * Delete multiple patients and their related medical records
+ * in a single MongoDB transaction.
+ *
+ * All selected patients must belong to the authenticated doctor.
+ * If any patient is missing or does not belong to the doctor,
+ * nothing is deleted.
+ */
+export const bulkDeletePatients = async (
+  userId: Types.ObjectId,
+  patientIds: string[],
+): Promise<{ deletedCount: number; deletedIds: string[] }> => {
+  // Validate and remove duplicate IDs.
+  if (
+    !Array.isArray(patientIds) ||
+    patientIds.length === 0 ||
+    patientIds.length > 500 ||
+    patientIds.some(
+      (id) => typeof id !== "string" || !mongoose.isValidObjectId(id),
+    )
+  ) {
+    throw new Error("Invalid patient IDs.");
+  }
+
+  const uniqueIds = [...new Set(patientIds)];
+
+  const objectIds = uniqueIds.map((id) => new mongoose.Types.ObjectId(id));
+
+  const session = await mongoose.startSession();
+
+  let result: { deletedCount: number; deletedIds: string[] } = {
+    deletedCount: 0,
+    deletedIds: [],
+  };
+
+  try {
+    await session.withTransaction(async () => {
+      // Only find patients owned by the authenticated doctor.
+      const patients = await Patient.find({
+        _id: { $in: objectIds },
+        userId,
+      })
+        .select("_id")
+        .session(session);
+
+      // If even one patient is missing or not owned by this doctor,
+      // abort the operation without deleting anything.
+      if (patients.length !== uniqueIds.length) {
+        return;
+      }
+
+      const verifiedIds = patients.map((patient) => patient._id);
+
+      // Delete related investigations.
+      await Investigation.deleteMany({
+        patientId: { $in: verifiedIds },
+      }).session(session);
+
+      // Delete related prescriptions.
+      await Prescription.deleteMany({
+        patientId: { $in: verifiedIds },
+      }).session(session);
+
+      // Delete related visits.
+      await Visit.deleteMany({
+        patientId: { $in: verifiedIds },
+      }).session(session);
+
+      // Delete the selected patients.
+      const deleteResult = await Patient.deleteMany({
+        _id: { $in: verifiedIds },
+        userId,
+      }).session(session);
+
+      if (deleteResult.deletedCount !== uniqueIds.length) {
+        throw new Error("Bulk patient deletion failed.");
+      }
+
+      result = {
+        deletedCount: deleteResult.deletedCount,
+        deletedIds: uniqueIds,
+      };
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};

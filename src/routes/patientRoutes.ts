@@ -6,6 +6,7 @@ import {
   getPatientController,
   updatePatientController,
   deletePatientController,
+  bulkDeletePatientsController,
 } from "../controllers/patientController";
 
 import { validateBody } from "../middleware/validationMiddleware";
@@ -20,43 +21,31 @@ const router = Router();
 /**
  * Patient list.
  */
-router.get(
-  "/",
-  getPatientsController,
-);
+router.get("/", getPatientsController);
 
 /**
  * Create patient.
  */
-router.post(
-  "/",
-  validateBody(createPatientSchema),
-  createPatientController,
-);
+router.post("/", validateBody(createPatientSchema), createPatientController);
 
 /**
  * Get patient.
  */
-router.get(
-  "/:id",
-  getPatientController,
-);
+router.get("/:id", getPatientController);
 
 /**
  * Update patient.
  */
-router.put(
-  "/:id",
-  validateBody(updatePatientSchema),
-  updatePatientController,
-);
+router.put("/:id", validateBody(updatePatientSchema), updatePatientController);
 
 /**
  * Delete patient.
  */
-router.delete(
-  "/:id",
-  deletePatientController,
-);
+router.delete("/:id", deletePatientController);
 
 export default router;
+
+/**
+ * Delete multiple patients.
+ */
+router.post("/bulk-delete", bulkDeletePatientsController);
